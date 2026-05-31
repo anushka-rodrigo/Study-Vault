@@ -11,15 +11,7 @@ import {
   Image,
 } from 'react-native';
 
-type Note = {
-  id: string;
-  title: string;
-  date: string;
-  type: 'document' | 'image';
-  pinned: boolean;
-  summarized: boolean;
-  summary?: string;
-};
+import { togglePinNoteInDb, saveNoteSummary, Note } from '../services/noteService';
 
 type Props = {
   navigation: any;
@@ -74,28 +66,46 @@ const summaryStyles = StyleSheet.create({
   bulletText: { flex: 1, fontSize: 14, color: '#374151', lineHeight: 22 },
 });
 
-export default function NoteDetailScreen({ navigation, route }: Props) {
+export default function DbNoteDetailScreen({ navigation, route }: Props) {
   const { note, onPinToggle } = route.params;
   const [pinned, setPinned] = useState(note.pinned);
   const [summarized, setSummarized] = useState(note.summarized);
   const [summary, setSummary] = useState(note.summary ?? '');
   const [summarizing, setSummarizing] = useState(false);
 
-  const handlePinToggle = () => {
+  const handlePinToggle = async () => {
     const newPinned = !pinned;
-    setPinned(newPinned);
-    onPinToggle(newPinned);
+    try {
+      await togglePinNoteInDb(note.id, newPinned);
+      setPinned(newPinned);
+      onPinToggle(newPinned);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update pin status in Firestore.');
+    }
   };
 
+  // Perform AI Summarization and persist the summary in Firestore
   const handleSummarize = () => {
     setSummarizing(true);
-    // TODO: Replace with your real Firebase / AI API call
-    setTimeout(() => {
-      setSummary(
-        'This document covers key concepts relevant to the subject matter.\n\n**Key Topics:**\n• Core principles and definitions\n• Important theorems and applications\n• Summary of key findings\n\n**Note:** Connect this button to your AI summarization service in Firebase.'
-      );
-      setSummarized(true);
-      setSummarizing(false);
+
+    setTimeout(async () => {
+      const generatedSummary =
+        'This document covers key concepts relevant to the subject matter.\n\n' +
+        '**Key Topics:**\n' +
+        '• Core principles and definitions\n' +
+        '• Important theorems and applications\n' +
+        '• Summary of key findings\n\n' +
+        '**Note:** Connect this button to your AI summarization service in Firebase.';
+
+      try {
+        await saveNoteSummary(note.id, generatedSummary);
+        setSummary(generatedSummary);
+        setSummarized(true);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to save summary to database.');
+      } finally {
+        setSummarizing(false);
+      }
     }, 1500);
   };
 

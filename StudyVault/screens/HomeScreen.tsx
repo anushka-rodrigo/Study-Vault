@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,55 +9,58 @@ import {
   StatusBar,
   Alert,
   Image,
+  ActivityIndicator, // Added ActivityIndicator to show a loading spinner
 } from 'react-native';
 
-export type Note = {
-  id: string;
-  title: string;
-  date: string;
-  type: 'document' | 'image';
-  pinned: boolean;
-  summarized: boolean;
-  summary?: string;
-};
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from '../config/firebase';
+import {
+  fetchNotes,
+  addNote,
+  deleteNoteFromDb,
+  togglePinNoteInDb,
+  Note
+} from '../services/noteService';
 
 type Props = {
   navigation: any;
 };
 
-const initialNotes: Note[] = [
-  {
-    id: '1',
-    title: 'Introduction to Calculus',
-    date: 'May 8, 2026',
-    type: 'document',
-    pinned: true,
-    summarized: true,
-    summary:
-      'This chapter introduces fundamental concepts of calculus including limits, derivatives, and integrals. The main focus is on understanding how functions behave as they approach specific values.\n\n**Key Topics:**\n• Definition and properties of limits\n• The derivative as rate of change\n• Fundamental theorem of calculus\n• Chain rule and product rule applications\n• Integration techniques and u-substitution\n\n**Important Formulas:** The derivative of x^n is nx^(n-1), and the integral of x^n is x^(n+1)/(n+1) + C.',
-  },
-  {
-    id: '2',
-    title: 'World History - Chapter 5',
-    date: 'May 6, 2026',
-    type: 'document',
-    pinned: true,
-    summarized: true,
-    summary:
-      'Chapter 5 covers the major events of the early 20th century including World War I causes, the rise of nationalism, and the political aftermath of the Treaty of Versailles.',
-  },
-  { id: '3', title: 'Organic Chemistry Notes',     date: 'May 7, 2026', type: 'image',    pinned: false, summarized: false },
-  { id: '4', title: 'Physics Lab Report',          date: 'May 5, 2026', type: 'image',    pinned: false, summarized: false },
-  { id: '5', title: 'Computer Science Algorithms', date: 'May 3, 2026', type: 'document', pinned: false, summarized: false },
-  { id: '6', title: 'Biology Cell Structure',      date: 'May 2, 2026', type: 'document', pinned: false, summarized: false },
-];
-
-export default function HomeScreen({ navigation }: Props) {
+export default function DbHomeScreen({ navigation }: Props) {
   const [activeTab, setActiveTab] = useState<'list' | 'group'>('list');
-  const [notes, setNotes] = useState<Note[]>(initialNotes);
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [loadingNotes, setLoadingNotes] = useState<boolean>(true);
 
-  const handlePinToggle = (id: string, pinned: boolean) => {
-    setNotes(prev => prev.map(n => (n.id === id ? { ...n, pinned } : n)));
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setLoadingNotes(true);
+        fetchNotes(user.uid)
+          .then((fetchedNotes) => {
+            setNotes(fetchedNotes);
+          })
+          .catch((error) => {
+            Alert.alert('Database Error', 'Could not load your notes. Please check connection.');
+            console.error(error);
+          })
+          .finally(() => {
+            setLoadingNotes(false);
+          });
+      } else {
+        navigation.replace('Login');
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  const handlePinToggle = async (id: string, pinned: boolean) => {
+    try {
+      await togglePinNoteInDb(id, pinned);
+      setNotes(prev => prev.map(n => (n.id === id ? { ...n, pinned } : n)));
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update pin status in Firestore.');
+    }
   };
 
   const deleteNote = (id: string) => {
@@ -66,13 +69,54 @@ export default function HomeScreen({ navigation }: Props) {
       {
         text: 'Delete',
         style: 'destructive',
-        onPress: () => setNotes(prev => prev.filter(n => n.id !== id)),
+        onPress: async () => {
+          try {
+            await deleteNoteFromDb(id);
+            setNotes(prev => prev.filter(n => n.id !== id));
+          } catch (error) {
+            Alert.alert('Error', 'Failed to delete note from database.');
+          }
+        },
       },
     ]);
   };
 
   const handleAddNote = () => {
-    Alert.alert('Add Note', 'Navigate to Add Note screen here.');
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      Alert.alert('Error', 'You must be logged in to add notes.');
+      return;
+    }
+
+    Alert.alert(
+      'New Note',
+      'Select note format:',
+      [
+        {
+          text: 'PDF Document',
+          onPress: async () => {
+            try {
+              const newNote = await addNote(currentUser.uid, 'Introduction to Calculus', 'document');
+              setNotes(prev => [newNote, ...prev]);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to save note to Firestore.');
+            }
+          },
+        },
+        {
+          text: 'Image Note',
+          onPress: async () => {
+            try {
+              const newNote = await addNote(currentUser.uid, 'Physics Lab Report', 'image');
+              setNotes(prev => [newNote, ...prev]);
+            } catch (error) {
+              Alert.alert('Error', 'Failed to save note to Firestore.');
+            }
+          },
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
   };
 
   const handleProfile = () => {
@@ -172,7 +216,11 @@ export default function HomeScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        {activeTab === 'list' ? (
+        {loadingNotes ? (
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+            <ActivityIndicator size="large" color="#2563EB" />
+          </View>
+        ) : activeTab === 'list' ? (
           <FlatList
             data={sortedNotes}
             keyExtractor={item => item.id}
@@ -198,6 +246,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#2563EB',
     paddingHorizontal: 20, paddingVertical: 16,
+    paddingTop: (StatusBar.currentHeight || 24) + 10,// Add extra top padding to account for status bar height
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
