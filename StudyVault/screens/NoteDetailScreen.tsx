@@ -149,7 +149,11 @@ export default function NoteDetailScreen({ navigation, route }: Props) {
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.headerIconBtn}
           >
-            <Text style={styles.headerIconText}>⎋</Text>
+            <Image
+                        source={require('../assets/icons/share-icon.png')}
+                        style={styles.ShareIconImage}
+                        resizeMode="contain"
+                      />
           </TouchableOpacity>
 
           {/* Download */}
@@ -177,13 +181,13 @@ export default function NoteDetailScreen({ navigation, route }: Props) {
             <View style={styles.fileIconCircle}>
               {note.type === 'document' ? (
                 <Image
-                  source={require('../assets/icons/pdf-icon.jpg')}
+                  source={require('../assets/icons/pdf-icon.png')}
                   style={styles.fileIconImg}
                   resizeMode="contain"
                 />
               ) : (
                 <Image
-                  source={require('../assets/icons/image-icon.jpg')}
+                  source={require('../assets/icons/image-icon.png')}
                   style={styles.fileIconImg}
                   resizeMode="contain"
                 />
@@ -263,6 +267,7 @@ const styles = StyleSheet.create({
   backArrow: { fontSize: 22, color: '#374151', fontWeight: '600' },
   headerIconText: { fontSize: 20, color: '#6B7280' },
   headerIconActive: { color: '#7C3AED' },
+  ShareIconImage: { width: 25, height: 25 },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 48, gap: 16 },
   title: { fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 4 },
@@ -273,10 +278,14 @@ const styles = StyleSheet.create({
   },
   fileRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   fileIconCircle: {
-    width: 48, height: 48, borderRadius: 12, backgroundColor: '#2563EB',
-    justifyContent: 'center', alignItems: 'center',
+    width: 48,
+  height: 48,
+  borderRadius: 12,
+  backgroundColor: '#EEF2FF',  
+  justifyContent: 'center',
+  alignItems: 'center',
   },
-  fileIconImg: { width: 28, height: 28 },
+  fileIconImg: { width: 34, height: 34 },
   fileInfo: { flex: 1 },
   fileLabel: { fontSize: 14, fontWeight: '700', color: '#111827' },
   fileName: { fontSize: 12, color: '#6B7280', marginTop: 2 },
