@@ -12,7 +12,27 @@ import {
   Timestamp
 } from 'firebase/firestore';
 
-import { db } from '../config/firebase';
+import { db, storage } from '../config/firebase';
+import { ref, deleteObject } from 'firebase/storage';
+import * as FileSystem from 'expo-file-system/legacy';
+
+// Resolves a stored fileUrl/filePath into a valid absolute file URI.
+export const resolveFileUri = (fileUrlOrPath?: string): string => {
+  if (!fileUrlOrPath) return '';
+  if (fileUrlOrPath.startsWith('http://') || fileUrlOrPath.startsWith('https://')) {
+    return fileUrlOrPath;
+  }
+
+  const filename = fileUrlOrPath.substring(fileUrlOrPath.lastIndexOf('/') + 1).split('?')[0];
+
+  if (fileUrlOrPath.includes('/notes/')) {
+    const notesIdx = fileUrlOrPath.indexOf('/notes/');
+    const relativePath = fileUrlOrPath.substring(notesIdx + 1);
+    return `${FileSystem.documentDirectory}${relativePath}`;
+  }
+
+  return `${FileSystem.documentDirectory}${filename}`;
+};
 
 export type Note = {
   id: string;
@@ -24,6 +44,8 @@ export type Note = {
   summarized: boolean;
   summary?: string;
   createdAt?: any;
+  filePath?: string;
+  fileUrl?: string;
 };
 
 const formatDate = (dateValue: any): string => {
@@ -73,6 +95,8 @@ export const fetchNotes = async (userId: string): Promise<Note[]> => {
         summarized: !!data.summarized,
         summary: data.summary || '',
         createdAt: data.createdAt,
+        filePath: data.filePath || '',
+        fileUrl: data.fileUrl || '',
       });
     });
 
@@ -119,12 +143,25 @@ export const addNote = async (
   }
 };
 
-export const deleteNoteFromDb = async (noteId: string): Promise<void> => {
+export const deleteNoteFromDb = async (noteId: string, filePath?: string): Promise<void> => {
   try {
+    if (filePath) {
+      if (filePath.startsWith('file://') || !filePath.startsWith('http')) {
+        const resolvedPath = resolveFileUri(filePath);
+        const fileInfo = await FileSystem.getInfoAsync(resolvedPath);
+        if (fileInfo.exists) {
+          await FileSystem.deleteAsync(resolvedPath, { idempotent: true });
+        }
+      } else {
+        const fileStorageRef = ref(storage, filePath);
+        await deleteObject(fileStorageRef);
+      }
+    }
+
     const noteDocRef = doc(db, 'notes', noteId);
     await deleteDoc(noteDocRef);
   } catch (error) {
-    console.error('Error deleting note from Firestore:', error);
+    console.error('Error in deleteNoteFromDb (dual deletion):', error);
     throw error;
   }
 };
@@ -139,6 +176,7 @@ export const togglePinNoteInDb = async (noteId: string, pinned: boolean): Promis
   }
 };
 
+// Summaries are stored as text in Firestore.
 export const saveNoteSummary = async (noteId: string, summaryText: string): Promise<void> => {
   try {
     const noteDocRef = doc(db, 'notes', noteId);

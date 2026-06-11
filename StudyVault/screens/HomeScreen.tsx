@@ -10,6 +10,8 @@ import {
   Alert,
   Image,
   ActivityIndicator, // Added ActivityIndicator to show a loading spinner
+  TextInput,
+  Modal,
 } from 'react-native';
 
 import { onAuthStateChanged } from 'firebase/auth';
@@ -22,6 +24,8 @@ import {
   Note
 } from '../services/noteService';
 
+import { Folder, fetchFolders, createFolder } from '../services/folderService';
+
 type Props = {
   navigation: any;
 };
@@ -31,8 +35,13 @@ export default function DbHomeScreen({ navigation }: Props) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [loadingNotes, setLoadingNotes] = useState<boolean>(true);
 
+  const [folders, setFolders] = useState<Folder[]>([]);
+  const [loadingFolders, setLoadingFolders] = useState<boolean>(false);
+  const [folderModalVisible, setFolderModalVisible] = useState(false);
+  const [folderName, setFolderName] = useState('');
+
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         setLoadingNotes(true);
         fetchNotes(user.uid)
@@ -46,12 +55,46 @@ export default function DbHomeScreen({ navigation }: Props) {
           .finally(() => {
             setLoadingNotes(false);
           });
+
+        // Fetch folders for the authenticated user.
+        setLoadingFolders(true);
+        fetchFolders(user.uid)
+          .then((fetchedFolders) => {
+            setFolders(fetchedFolders);
+          })
+          .catch((error) => {
+            console.error('Error fetching folders:', error);
+          })
+          .finally(() => {
+            setLoadingFolders(false);
+          });
       } else {
         navigation.replace('Login');
       }
     });
 
-    return unsubscribe;
+    // Refresh note and folder list from database when screen comes back into focus.
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        fetchNotes(currentUser.uid)
+          .then((fetchedNotes) => {
+            setNotes(fetchedNotes);
+          })
+          .catch((error) => console.error(error));
+
+        fetchFolders(currentUser.uid)
+          .then((fetchedFolders) => {
+            setFolders(fetchedFolders);
+          })
+          .catch((error) => console.error(error));
+      }
+    });
+
+    return () => {
+      unsubscribeAuth();
+      unsubscribeFocus();
+    };
   }, [navigation]);
 
   const handlePinToggle = async (id: string, pinned: boolean) => {
@@ -63,7 +106,8 @@ export default function DbHomeScreen({ navigation }: Props) {
     }
   };
 
-  const deleteNote = (id: string) => {
+  // Updated deleteNote handler to accept and pass the storage filePath for dual deletion.
+  const deleteNote = (id: string, filePath?: string) => {
     Alert.alert('Delete Note', 'Are you sure you want to delete this note?', [
       { text: 'Cancel', style: 'cancel' },
       {
@@ -71,7 +115,7 @@ export default function DbHomeScreen({ navigation }: Props) {
         style: 'destructive',
         onPress: async () => {
           try {
-            await deleteNoteFromDb(id);
+            await deleteNoteFromDb(id, filePath);
             setNotes(prev => prev.filter(n => n.id !== id));
           } catch (error) {
             Alert.alert('Error', 'Failed to delete note from database.');
@@ -81,42 +125,9 @@ export default function DbHomeScreen({ navigation }: Props) {
     ]);
   };
 
+  // Modified handleAddNote to navigate to AddNoteScreen instead of showing mock alerts.
   const handleAddNote = () => {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      Alert.alert('Error', 'You must be logged in to add notes.');
-      return;
-    }
-
-    Alert.alert(
-      'New Note',
-      'Select note format:',
-      [
-        {
-          text: 'PDF Document',
-          onPress: async () => {
-            try {
-              const newNote = await addNote(currentUser.uid, 'Introduction to Calculus', 'document');
-              setNotes(prev => [newNote, ...prev]);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to save note to Firestore.');
-            }
-          },
-        },
-        {
-          text: 'Image Note',
-          onPress: async () => {
-            try {
-              const newNote = await addNote(currentUser.uid, 'Physics Lab Report', 'image');
-              setNotes(prev => [newNote, ...prev]);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to save note to Firestore.');
-            }
-          },
-        },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
+    navigation.navigate('AddNote');
   };
 
   const handleProfile = () => {
@@ -128,6 +139,8 @@ export default function DbHomeScreen({ navigation }: Props) {
     if (!a.pinned && b.pinned) return 1;
     return 0;
   });
+
+
 
   const renderNote = ({ item }: { item: Note }) => (
     <TouchableOpacity
@@ -164,7 +177,7 @@ export default function DbHomeScreen({ navigation }: Props) {
       <View style={styles.noteActions}>
         {item.pinned && <Text style={styles.pinIcon}>📌</Text>}
         <TouchableOpacity
-          onPress={() => deleteNote(item.id)}
+          onPress={() => deleteNote(item.id, item.filePath)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Image
@@ -177,9 +190,74 @@ export default function DbHomeScreen({ navigation }: Props) {
     </TouchableOpacity>
   );
 
+  // Added folder creation dialog for basic file organization.
+  const handleAddFolder = () => {
+    setFolderName('');
+    setFolderModalVisible(true);
+  };
+
+  const handleCreateFolder = async () => {
+    if (!folderName.trim()) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    try {
+      const newFolder = await createFolder(currentUser.uid, folderName.trim());
+      setFolders(prev => [...prev, newFolder]);
+      setFolderModalVisible(false);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create folder.');
+    }
+  };
+
+  // Added real Group View containing a list of folders fetched from Firestore.
   const renderGroupView = () => (
-    <View style={styles.groupContainer}>
-      <Text style={styles.groupEmptyText}>Group View coming soon...</Text>
+    <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 8 }}>
+      <TouchableOpacity
+        style={{
+          backgroundColor: '#2563EB', padding: 12, borderRadius: 10,
+          alignItems: 'center', marginBottom: 16
+        }}
+        onPress={handleAddFolder}
+      >
+        <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>+ Create Folder</Text>
+      </TouchableOpacity>
+      {loadingFolders ? (
+        <ActivityIndicator size="small" color="#2563EB" />
+      ) : folders.length === 0 ? (
+        <View style={styles.groupContainer}>
+          <Text style={styles.groupEmptyText}>No folders created yet.</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={folders}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12,
+                flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: 8, elevation: 1
+              }}
+              onPress={() => navigation.navigate('FolderDetail', {
+                folder: item,
+                allNotes: notes,
+                onUpdate: (updatedFolder: Folder) => {
+                  setFolders(prev => prev.map(f => f.id === updatedFolder.id ? updatedFolder : f));
+                }
+              })}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <Text style={{ fontSize: 24 }}>📁</Text>
+                <View>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{item.name}</Text>
+                  <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.noteIds.length} notes</Text>
+                </View>
+              </View>
+              <Text style={{ color: '#6B7280' }}>→</Text>
+            </TouchableOpacity>
+          )}
+        />
+      )}
     </View>
   );
 
@@ -221,14 +299,16 @@ export default function DbHomeScreen({ navigation }: Props) {
             <ActivityIndicator size="large" color="#2563EB" />
           </View>
         ) : activeTab === 'list' ? (
-          <FlatList
-            data={sortedNotes}
-            keyExtractor={item => item.id}
-            renderItem={renderNote}
-            contentContainerStyle={styles.listContent}
-            showsVerticalScrollIndicator={false}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-          />
+          <View style={{ flex: 1 }}>
+            <FlatList
+              data={sortedNotes}
+              keyExtractor={item => item.id}
+              renderItem={renderNote}
+              contentContainerStyle={styles.listContent}
+              showsVerticalScrollIndicator={false}
+              ItemSeparatorComponent={() => <View style={styles.separator} />}
+            />
+          </View>
         ) : (
           renderGroupView()
         )}
@@ -237,6 +317,53 @@ export default function DbHomeScreen({ navigation }: Props) {
       <TouchableOpacity style={styles.fab} onPress={handleAddNote} activeOpacity={0.85}>
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
+
+      <Modal
+        visible={folderModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setFolderModalVisible(false)}
+      >
+        <View style={{
+          flex: 1, backgroundColor: 'rgba(0,0,0,0.4)',
+          justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32
+        }}>
+          <View style={{
+            backgroundColor: '#FFFFFF', borderRadius: 16,
+            padding: 24, width: '100%',
+          }}>
+            <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827', marginBottom: 16 }}>
+              Create Folder
+            </Text>
+            <TextInput
+              placeholder="Enter folder name"
+              value={folderName}
+              onChangeText={setFolderName}
+              autoFocus
+              style={{
+                borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
+                paddingHorizontal: 14, paddingVertical: 10,
+                fontSize: 15, color: '#111827', marginBottom: 20,
+              }}
+            />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: '#E5E7EB', alignItems: 'center' }}
+                onPress={() => setFolderModalVisible(false)}
+              >
+                <Text style={{ fontWeight: '700', color: '#374151' }}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: '#2563EB', alignItems: 'center' }}
+                onPress={handleCreateFolder}
+              >
+                <Text style={{ fontWeight: '700', color: '#FFFFFF' }}>Create</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -301,4 +428,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
   },
   fabIcon: { fontSize: 28, color: '#FFFFFF', fontWeight: '400', lineHeight: 32 },
+
+
 });

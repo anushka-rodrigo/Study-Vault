@@ -9,9 +9,14 @@ import {
   ScrollView,
   Alert,
   Image,
+  Platform,
+  Share,
 } from 'react-native';
 
-import { togglePinNoteInDb, saveNoteSummary, Note } from '../services/noteService';
+import { togglePinNoteInDb, saveNoteSummary, Note, resolveFileUri } from '../services/noteService';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
+import * as IntentLauncher from 'expo-intent-launcher';
 
 type Props = {
   navigation: any;
@@ -73,6 +78,8 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
   const [summary, setSummary] = useState(note.summary ?? '');
   const [summarizing, setSummarizing] = useState(false);
 
+  const resolvedFileUrl = resolveFileUri(note.fileUrl);
+
   const handlePinToggle = async () => {
     const newPinned = !pinned;
     try {
@@ -84,7 +91,8 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     }
   };
 
-  // Perform AI Summarization and persist the summary in Firestore
+  // TODO: Replace setTimeout mock with real Gemini API call.
+  // Pass note.fileUrl to the API and save the response via saveNoteSummary. 
   const handleSummarize = () => {
     setSummarizing(true);
 
@@ -123,9 +131,186 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     ]);
   };
 
-  const handleShare = () => Alert.alert('Share', 'Share functionality coming soon.');
-  const handleDownload = () => Alert.alert('Download', 'Download functionality coming soon.');
-  const handleOpenFile = () => Alert.alert('Open File', 'Open full file viewer coming soon.');
+  // Downloads remote files to a local temp path before sharing (Sharing requires a local URI).
+  const handleShare = async () => {
+    if (!resolvedFileUrl) {
+      Alert.alert('Error', 'No file URI associated with this note.');
+      return;
+    }
+
+    try {
+      let localUri = resolvedFileUrl;
+
+      if (resolvedFileUrl.startsWith('http://') || resolvedFileUrl.startsWith('https://')) {
+        const filename = resolvedFileUrl.substring(resolvedFileUrl.lastIndexOf('/') + 1).split('?')[0];
+        const localDest = `${FileSystem.documentDirectory}notes/${note.userId}/${note.type === 'document' ? 'docs' : 'images'}/`;
+
+        // Ensure directory exists
+        await FileSystem.makeDirectoryAsync(localDest, { intermediates: true });
+
+        const fullPath = `${localDest}${filename}`;
+        const fileInfo = await FileSystem.getInfoAsync(fullPath);
+        if (!fileInfo.exists) {
+          Alert.alert('Downloading', 'Downloading file to share...');
+          const downloadResult = await FileSystem.downloadAsync(resolvedFileUrl, fullPath);
+          localUri = downloadResult.uri;
+        } else {
+          localUri = fullPath;
+        }
+      } else {
+        const fileInfo = await FileSystem.getInfoAsync(localUri);
+        if (!fileInfo.exists) {
+          Alert.alert('Error', 'The local file could not be found on this device.');
+          return;
+        }
+      }
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(localUri);
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device.');
+      }
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error', 'Could not share file: ' + error.message);
+    }
+  };
+
+  const handleShareSummary = async () => {
+    if (!summary) return;
+    try {
+      await Share.share({
+        message: `AI Summary of ${note.title}:\n\n${summary}`,
+        title: `Summary of ${note.title}`,
+      });
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to share summary: ' + error.message);
+    }
+  };
+
+  // Exports the AI Summary text as a local .txt file.
+  const handleDownloadSummary = async () => {
+    if (!summary) return;
+    try {
+      const sanitizedTitle = note.title.toLowerCase().replace(/\s+/g, '_');
+      const filename = `${sanitizedTitle}_summary.txt`;
+      const tempUri = `${FileSystem.documentDirectory}${filename}`;
+
+      await FileSystem.writeAsStringAsync(tempUri, summary, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(tempUri);
+      } else {
+        Alert.alert('Success', 'Summary saved to local storage.');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to download summary: ' + error.message);
+    }
+  };
+
+  // Downloads remote files to local storage or exports local files to system downloads.
+  const handleDownload = async () => {
+    if (!resolvedFileUrl) {
+      Alert.alert('Error', 'No file URI associated with this note.');
+      return;
+    }
+
+    try {
+      if (resolvedFileUrl.startsWith('file://')) {
+        if (await Sharing.isAvailableAsync()) {
+          Alert.alert('Export File', 'Save this file to your device storage.', [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Save/Export',
+              onPress: async () => {
+                await Sharing.shareAsync(resolvedFileUrl);
+              }
+            }
+          ]);
+        } else {
+          Alert.alert('Local File', 'This file is already stored locally on your device.');
+        }
+        return;
+      }
+
+      const filename = resolvedFileUrl.substring(resolvedFileUrl.lastIndexOf('/') + 1).split('?')[0];
+      const dirPath = `${FileSystem.documentDirectory}notes/${note.userId}/${note.type === 'document' ? 'docs' : 'images'}/`;
+
+      await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
+
+      const localDest = `${dirPath}${filename}`;
+
+      const fileInfo = await FileSystem.getInfoAsync(localDest);
+      if (fileInfo.exists) {
+        Alert.alert('Local File', 'This file was already downloaded to your device.');
+        return;
+      }
+
+      Alert.alert('Downloading', 'Downloading file...');
+      await FileSystem.downloadAsync(resolvedFileUrl, localDest);
+      Alert.alert('Success', 'File downloaded successfully to local storage.');
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error', 'Download failed: ' + error.message);
+    }
+  };
+
+  // Opens the file in the device's system viewer. Handles remote files by downloading them first.
+  const handleOpenFile = async () => {
+    if (!resolvedFileUrl) {
+      Alert.alert('Error', 'No file URI associated with this note.');
+      return;
+    }
+
+    try {
+      let localUri = resolvedFileUrl;
+
+      if (resolvedFileUrl.startsWith('http://') || resolvedFileUrl.startsWith('https://')) {
+        const filename = resolvedFileUrl.substring(resolvedFileUrl.lastIndexOf('/') + 1).split('?')[0];
+        const dirPath = `${FileSystem.documentDirectory}notes/${note.userId}/${note.type === 'document' ? 'docs' : 'images'}/`;
+
+        await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
+
+        const fullPath = `${dirPath}${filename}`;
+        const fileInfo = await FileSystem.getInfoAsync(fullPath);
+        if (!fileInfo.exists) {
+          Alert.alert('Downloading', 'Downloading file to view...');
+          const downloadResult = await FileSystem.downloadAsync(resolvedFileUrl, fullPath);
+          localUri = downloadResult.uri;
+        } else {
+          localUri = fullPath;
+        }
+      } else {
+        const fileInfo = await FileSystem.getInfoAsync(localUri);
+        if (!fileInfo.exists) {
+          Alert.alert('Error', 'Local target file path does not exist.');
+          return;
+        }
+      }
+
+      // Launch default system viewer
+      if (Platform.OS === 'android') {
+        const cUri = await FileSystem.getContentUriAsync(localUri);
+        await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+          data: cUri,
+          flags: 1, // Grant read permission
+          type: note.type === 'document' ? 'application/pdf' : 'image/*',
+        });
+      } else {
+        // iOS Fallback: Open with sharing controller (which has "Quick Look" viewer built-in)
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(localUri);
+        } else {
+          Alert.alert('Error', 'Sharing / viewing is not available on this device.');
+        }
+      }
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error', 'Could not open file: ' + error.message);
+    }
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -214,6 +399,17 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
           </View>
         </View>
 
+        {/* Show a visual preview if the note is an image. */}
+        {note.type === 'image' && resolvedFileUrl && (
+          <View style={styles.imagePreviewCard}>
+            <Image
+              source={{ uri: resolvedFileUrl }}
+              style={styles.imagePreview}
+              resizeMode="contain"
+            />
+          </View>
+        )}
+
         {/* AI Summary card */}
         <View style={styles.card}>
           <View style={styles.summaryHeaderRow}>
@@ -228,6 +424,25 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
               <View style={styles.summaryBody}>
                 <SummaryContent text={summary} />
               </View>
+
+              <View style={styles.summaryActionsRow}>
+                <TouchableOpacity
+                  style={styles.summaryActionButton}
+                  onPress={handleShareSummary}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.summaryActionButtonText}>Share Summary</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.summaryActionButton}
+                  onPress={handleDownloadSummary}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.summaryActionButtonText}>Download Summary</Text>
+                </TouchableOpacity>
+              </View>
+
               <TouchableOpacity
                 style={styles.actionButton}
                 onPress={handleResummarize}
@@ -311,4 +526,39 @@ const styles = StyleSheet.create({
   },
   actionButtonDisabled: { opacity: 0.5 },
   actionButtonText: { fontSize: 15, fontWeight: '700', color: '#2563EB' },
+  imagePreviewCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  imagePreview: {
+    width: '100%',
+    height: 240,
+    borderRadius: 8,
+  },
+  summaryActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  summaryActionButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  summaryActionButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+  },
 });
