@@ -143,6 +143,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
+    paddingTop: (StatusBar.currentHeight || 24) + 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
