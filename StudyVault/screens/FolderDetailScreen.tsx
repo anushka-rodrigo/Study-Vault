@@ -234,7 +234,7 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#2563EB' },
   header: {
-    backgroundColor: '#2563EB', paddingHorizontal: 20, paddingVertical: 16,
+    backgroundColor: '#2563EB', paddingHorizontal: 20, paddingVertical: 16, paddingTop: (StatusBar.currentHeight || 24) + 10,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
