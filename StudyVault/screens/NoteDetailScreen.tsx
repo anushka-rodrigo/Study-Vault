@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { togglePinNoteInDb, saveNoteSummary, Note, resolveFileUri } from '../services/noteService';
+import { summarizeNote } from '../services/geminiService';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -91,30 +92,29 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     }
   };
 
-  // TODO: Replace setTimeout mock with real Gemini API call.
-  // Pass note.fileUrl to the API and save the response via saveNoteSummary. 
-  const handleSummarize = () => {
+  const handleSummarize = async () => {
+    if (!resolvedFileUrl) {
+      Alert.alert('Error', 'No file is attached to this note.');
+      return;
+    }
+
     setSummarizing(true);
+    try {
+      const result = await summarizeNote(resolvedFileUrl, note.type, note.title);
 
-    setTimeout(async () => {
-      const generatedSummary =
-        'This document covers key concepts relevant to the subject matter.\n\n' +
-        '**Key Topics:**\n' +
-        '• Core principles and definitions\n' +
-        '• Important theorems and applications\n' +
-        '• Summary of key findings\n\n' +
-        '**Note:** Connect this button to your AI summarization service in Firebase.';
-
-      try {
-        await saveNoteSummary(note.id, generatedSummary);
-        setSummary(generatedSummary);
-        setSummarized(true);
-      } catch (error) {
-        Alert.alert('Error', 'Failed to save summary to database.');
-      } finally {
-        setSummarizing(false);
+      if (!result.success || !result.summary) {
+        Alert.alert('Summarization Failed', result.error || 'Please try again.');
+        return;
       }
-    }, 1500);
+
+      await saveNoteSummary(note.id, result.summary);
+      setSummary(result.summary);
+      setSummarized(true);
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to save summary to database.');
+    } finally {
+      setSummarizing(false);
+    }
   };
 
   const handleResummarize = () => {
