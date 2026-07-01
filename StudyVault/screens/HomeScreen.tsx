@@ -24,7 +24,7 @@ import {
   Note
 } from '../services/noteService';
 
-import { Folder, fetchFolders, createFolder } from '../services/folderService';
+import { Folder, fetchFolders, createFolder, deleteFolderFromDb, removeNoteFromFolderInDb } from '../services/folderService';
 
 type Props = {
   navigation: any;
@@ -115,8 +115,19 @@ export default function DbHomeScreen({ navigation }: Props) {
         style: 'destructive',
         onPress: async () => {
           try {
-            await deleteNoteFromDb(id, filePath);
+          await deleteNoteFromDb(id, filePath);
+
+          // Remove this note's ID from every folder that references it in Firestore.
+          const affectedFolders = folders.filter(f => f.noteIds.includes(id));
+            await Promise.all(
+              affectedFolders.map(f => removeNoteFromFolderInDb(f.id, id))
+            );
+
             setNotes(prev => prev.filter(n => n.id !== id));
+            setFolders(prev => prev.map(f => ({
+              ...f,
+              noteIds: f.noteIds.filter(noteId => noteId !== id),
+            })));
           } catch (error) {
             Alert.alert('Error', 'Failed to delete note from database.');
           }
@@ -128,6 +139,24 @@ export default function DbHomeScreen({ navigation }: Props) {
   // Modified handleAddNote to navigate to AddNoteScreen instead of showing mock alerts.
   const handleAddNote = () => {
     navigation.navigate('AddNote');
+  };
+
+  const handleDeleteFolder = (folderId: string, folderName: string) => {
+    Alert.alert('Delete Folder', `Are you sure you want to delete "${folderName}"? Notes inside will not be deleted.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deleteFolderFromDb(folderId);
+            setFolders(prev => prev.filter(f => f.id !== folderId));
+          } catch (error) {
+            Alert.alert('Error', 'Failed to delete folder.');
+          }
+        },
+      },
+    ]);
   };
 
   const handleProfile = () => {
@@ -197,17 +226,27 @@ export default function DbHomeScreen({ navigation }: Props) {
   };
 
   const handleCreateFolder = async () => {
-    if (!folderName.trim()) return;
-    const currentUser = auth.currentUser;
-    if (!currentUser) return;
-    try {
-      const newFolder = await createFolder(currentUser.uid, folderName.trim());
-      setFolders(prev => [...prev, newFolder]);
-      setFolderModalVisible(false);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to create folder.');
-    }
-  };
+  const trimmedName = folderName.trim();
+  if (!trimmedName) return;
+  const currentUser = auth.currentUser;
+  if (!currentUser) return;
+
+  const isDuplicate = folders.some(
+    f => f.name.toLowerCase() === trimmedName.toLowerCase()
+  );
+  if (isDuplicate) {
+    Alert.alert('Duplicate Folder', 'A folder with this name already exists. Please choose a different name.');
+    return;
+  }
+
+  try {
+    const newFolder = await createFolder(currentUser.uid, trimmedName);
+    setFolders(prev => [...prev, newFolder]);
+    setFolderModalVisible(false);
+  } catch (error) {
+    Alert.alert('Error', 'Failed to create folder.');
+  }
+};
 
   // Added real Group View containing a list of folders fetched from Firestore.
   const renderGroupView = () => (
@@ -253,7 +292,19 @@ export default function DbHomeScreen({ navigation }: Props) {
                   <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.noteIds.length} notes</Text>
                 </View>
               </View>
-              <Text style={{ color: '#6B7280' }}>→</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                <TouchableOpacity
+                  onPress={() => handleDeleteFolder(item.id, item.name)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Image
+                    source={require('../assets/icons/delete-icon.png')}
+                    style={styles.deleteIconImage}
+                    resizeMode="contain"
+                  />
+                </TouchableOpacity>
+                <Text style={{ color: '#6B7280' }}>→</Text>
+              </View>
             </TouchableOpacity>
           )}
         />
@@ -314,9 +365,11 @@ export default function DbHomeScreen({ navigation }: Props) {
         )}
       </View>
 
-      <TouchableOpacity style={styles.fab} onPress={handleAddNote} activeOpacity={0.85}>
-        <Text style={styles.fabIcon}>+</Text>
-      </TouchableOpacity>
+      {activeTab === 'list' && (
+        <TouchableOpacity style={styles.fab} onPress={handleAddNote} activeOpacity={0.85}>
+          <Text style={styles.fabIcon}>+</Text>
+        </TouchableOpacity>
+      )}
 
       <Modal
         visible={folderModalVisible}
@@ -373,7 +426,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#2563EB',
     paddingHorizontal: 20, paddingVertical: 16,
-    paddingTop: (StatusBar.currentHeight || 24) + 10,// Add extra top padding to account for status bar height
+    paddingTop: (StatusBar.currentHeight || 24) + 10,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
@@ -421,7 +474,7 @@ const styles = StyleSheet.create({
   groupContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   groupEmptyText: { fontSize: 16, color: '#9CA3AF', fontWeight: '500' },
   fab: {
-    position: 'absolute', bottom: 32, right: 24,
+    position: 'absolute', bottom: 55, right: 24,
     width: 56, height: 56, borderRadius: 28, backgroundColor: '#2563EB',
     justifyContent: 'center', alignItems: 'center',
     shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 },

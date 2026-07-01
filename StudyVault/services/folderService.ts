@@ -5,6 +5,7 @@ import {
   query,
   where,
   addDoc,
+  deleteDoc,
   updateDoc,
   arrayUnion,
   arrayRemove,
@@ -66,4 +67,9 @@ export const removeNoteFromFolderInDb = async (folderId: string, noteId: string)
   await updateDoc(folderDocRef, {
     noteIds: arrayRemove(noteId),
   });
+};
+
+export const deleteFolderFromDb = async (folderId: string): Promise<void> => {
+  const folderDocRef = doc(db, 'folders', folderId);
+  await deleteDoc(folderDocRef);
 };
