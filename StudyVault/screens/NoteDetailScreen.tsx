@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 
 import { togglePinNoteInDb, saveNoteSummary, Note, resolveFileUri } from '../services/noteService';
+import { summarizeNote, formatSummaryForExport, NoteSummaryData } from '../services/geminiService';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
@@ -28,7 +29,60 @@ type Props = {
   };
 };
 
-function SummaryContent({ text }: { text: string }) {
+// Renders a structured AI summary (real bold/section components, no markdown parsing).
+function StructuredSummary({ data }: { data: NoteSummaryData }) {
+  return (
+    <View style={{ gap: 18 }}>
+      <View style={{ gap: 6 }}>
+        <Text style={summaryStyles.sectionHeading}>Overview</Text>
+        <Text style={summaryStyles.paragraph}>{data.overview}</Text>
+      </View>
+
+      {data.keyTopics.length > 0 && (
+        <View style={{ gap: 8 }}>
+          <Text style={summaryStyles.sectionHeading}>Key Topics</Text>
+          {data.keyTopics.map((topic, i) => (
+            <View key={i} style={summaryStyles.bulletRow}>
+              <Text style={summaryStyles.bullet}>•</Text>
+              <Text style={summaryStyles.bulletText}>
+                <Text style={summaryStyles.bold}>{topic.title}: </Text>
+                {topic.description}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {data.keyFormulas.length > 0 && (
+        <View style={{ gap: 8 }}>
+          <Text style={summaryStyles.sectionHeading}>Key Formulas & Definitions</Text>
+          {data.keyFormulas.map((f, i) => (
+            <View key={i} style={{ gap: 2 }}>
+              <Text style={summaryStyles.formula}>{f.formula}</Text>
+              <Text style={summaryStyles.paragraph}>{f.explanation}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {data.workedExample.length > 0 && (
+        <View style={{ gap: 8 }}>
+          <Text style={summaryStyles.sectionHeading}>Worked Example</Text>
+          {data.workedExample.map((step, i) => (
+            <View key={i} style={summaryStyles.bulletRow}>
+              <Text style={summaryStyles.bold}>{i + 1}.</Text>
+              <Text style={summaryStyles.bulletText}>{step}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// Fallback renderer for old notes summarized before the JSON format was introduced
+// (their "summary" field in Firestore is plain markdown-ish text, not JSON).
+function LegacySummaryText({ text }: { text: string }) {
   const lines = text.split('\n');
   return (
     <View style={{ gap: 4 }}>
@@ -36,10 +90,18 @@ function SummaryContent({ text }: { text: string }) {
         if (line.trim() === '') return <View key={i} style={{ height: 6 }} />;
 
         if (line.trim().startsWith('•')) {
+          const bulletText = line.trim().replace(/^•\s*/, '');
+          const parts = bulletText.split(/\*\*(.*?)\*\*/g);
           return (
             <View key={i} style={summaryStyles.bulletRow}>
               <Text style={summaryStyles.bullet}>•</Text>
-              <Text style={summaryStyles.bulletText}>{line.trim().replace(/^•\s*/, '')}</Text>
+              <Text style={summaryStyles.bulletText}>
+                {parts.map((part, j) =>
+                  j % 2 === 1
+                    ? <Text key={j} style={summaryStyles.bold}>{part}</Text>
+                    : part
+                )}
+              </Text>
             </View>
           );
         }
@@ -63,7 +125,22 @@ function SummaryContent({ text }: { text: string }) {
   );
 }
 
+// Tries to parse the stored summary as structured JSON; falls back to legacy text rendering.
+function SummaryContent({ text }: { text: string }) {
+  try {
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === 'object' && Array.isArray(parsed.keyTopics)) {
+      return <StructuredSummary data={parsed as NoteSummaryData} />;
+    }
+  } catch {
+    // Not JSON — fall through to legacy renderer below.
+  }
+  return <LegacySummaryText text={text} />;
+}
+
 const summaryStyles = StyleSheet.create({
+  sectionHeading: { fontSize: 14, fontWeight: '800', color: '#2563EB', textTransform: 'uppercase', letterSpacing: 0.3 },
+  formula: { fontSize: 14, fontWeight: '700', color: '#111827', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
   paragraph: { fontSize: 14, color: '#374151', lineHeight: 22 },
   bold: { fontWeight: '700', color: '#111827' },
   bulletRow: { flexDirection: 'row', gap: 8, paddingLeft: 4 },
@@ -91,30 +168,32 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     }
   };
 
-  // TODO: Replace setTimeout mock with real Gemini API call.
-  // Pass note.fileUrl to the API and save the response via saveNoteSummary. 
-  const handleSummarize = () => {
+  const handleSummarize = async () => {
+    if (!resolvedFileUrl) {
+      Alert.alert('Error', 'No file is attached to this note.');
+      return;
+    }
+
     setSummarizing(true);
+    try {
+      const result = await summarizeNote(resolvedFileUrl, note.type, note.title);
 
-    setTimeout(async () => {
-      const generatedSummary =
-        'This document covers key concepts relevant to the subject matter.\n\n' +
-        '**Key Topics:**\n' +
-        '• Core principles and definitions\n' +
-        '• Important theorems and applications\n' +
-        '• Summary of key findings\n\n' +
-        '**Note:** Connect this button to your AI summarization service in Firebase.';
-
-      try {
-        await saveNoteSummary(note.id, generatedSummary);
-        setSummary(generatedSummary);
-        setSummarized(true);
-      } catch (error) {
-        Alert.alert('Error', 'Failed to save summary to database.');
-      } finally {
-        setSummarizing(false);
+      if (!result.success || !result.summaryData) {
+        Alert.alert('Summarization Failed', result.error || 'Please try again.');
+        return;
       }
-    }, 1500);
+
+      // Stored as a JSON string so the existing "summary" string field in
+      // Firestore/noteService doesn't need a schema change.
+      const summaryJson = JSON.stringify(result.summaryData);
+      await saveNoteSummary(note.id, summaryJson);
+      setSummary(summaryJson);
+      setSummarized(true);
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to save summary to database.');
+    } finally {
+      setSummarizing(false);
+    }
   };
 
   const handleResummarize = () => {
@@ -176,11 +255,25 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     }
   };
 
+  // The stored "summary" is JSON for new notes, plain text for old (pre-JSON) notes.
+  // This always returns clean plain text, suitable for sharing/downloading.
+  const getSummaryExportText = (): string => {
+    try {
+      const parsed = JSON.parse(summary);
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.keyTopics)) {
+        return formatSummaryForExport(parsed as NoteSummaryData);
+      }
+    } catch {
+      // Not JSON — it's already legacy plain text.
+    }
+    return summary;
+  };
+
   const handleShareSummary = async () => {
     if (!summary) return;
     try {
       await Share.share({
-        message: `AI Summary of ${note.title}:\n\n${summary}`,
+        message: `AI Summary of ${note.title}:\n\n${getSummaryExportText()}`,
         title: `Summary of ${note.title}`,
       });
     } catch (error: any) {
@@ -196,7 +289,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
       const filename = `${sanitizedTitle}_summary.txt`;
       const tempUri = `${FileSystem.documentDirectory}${filename}`;
 
-      await FileSystem.writeAsStringAsync(tempUri, summary, {
+      await FileSystem.writeAsStringAsync(tempUri, getSummaryExportText(), {
         encoding: FileSystem.EncodingType.UTF8,
       });
 
