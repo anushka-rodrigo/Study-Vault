@@ -9,6 +9,10 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 
 import * as DocumentPicker from 'expo-document-picker';
@@ -21,9 +25,22 @@ type Props = {
   navigation: any;
 };
 
+// Holds the data for a file that has been picked but not yet saved, while the user is in the rename dialog.
+type PendingUpload = {
+  uri: string;        // original URI from picker
+  name: string;       // original filename (with extension)
+  type: 'document' | 'image';
+};
+
 export default function AddNoteScreen({ navigation }: Props) {
   const [pickingPdf, setPickingPdf] = useState(false);
   const [pickingImage, setPickingImage] = useState(false);
+
+  // Rename-before-upload state
+  const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [renameValue, setRenameValue] = useState('');   // name WITHOUT extension
+  const [saving, setSaving] = useState(false);
 
   const checkDuplicateNote = async (userId: string, title: string): Promise<boolean> => {
     const q = query(
@@ -36,7 +53,7 @@ export default function AddNoteScreen({ navigation }: Props) {
   };
 
 
-  // Pick a PDF, store locally, and save metadata to Firestore.
+  // ── Phase 1 ── Pick a PDF and open the rename dialog.
   const handleUploadPDF = async () => {
     setPickingPdf(true);
     const currentUser = auth.currentUser;
@@ -54,54 +71,20 @@ export default function AddNoteScreen({ navigation }: Props) {
       if (result.canceled) return;
       const asset = result.assets[0];
 
-      const noteTitle = asset.name.replace(/\.[^/.]+$/, "");
-
-      const isDuplicate = await checkDuplicateNote(currentUser.uid, noteTitle);
-      if (isDuplicate) {
-        Alert.alert(
-          'Duplicate Note',
-          'A note with the name "' + noteTitle + '" already exists. Please choose another file or rename it before uploading.'
-        );
-        return;
-      }
-
-      // Copy file from temporary cache to permanent local storage.
-      const destFilename = `${Date.now()}_${asset.name}`;
-      const dirPath = `${FileSystem.documentDirectory}notes/${currentUser.uid}/docs/`;
-      await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
-      const localDest = `${dirPath}${destFilename}`;
-      await FileSystem.copyAsync({
-        from: asset.uri,
-        to: localDest,
-      });
-
-      // Save note title, type, and local file path to Firestore.
-      await addDoc(collection(db, 'notes'), {
-        userId: currentUser.uid,
-        title: noteTitle,
-        type: 'document',
-        fileUrl: localDest,
-        filePath: localDest,
-        pinned: false,
-        summarized: false,
-        summary: '',
-        createdAt: serverTimestamp(),
-      });
-
-      Alert.alert(
-        'Success',
-        'PDF saved locally and note created!',
-        [{ text: 'OK', onPress: () => navigation.goBack() }]
-      );
+      // Pre-fill rename dialog with the filename (no extension)
+      const defaultTitle = asset.name.replace(/\.[^/.]+$/, '');
+      setPendingUpload({ uri: asset.uri, name: asset.name, type: 'document' });
+      setRenameValue(defaultTitle);
+      setRenameModalVisible(true);
     } catch (error: any) {
       console.error(error);
-      Alert.alert('Error', 'Failed to upload PDF: ' + (error.message || error));
+      Alert.alert('Error', 'Failed to pick PDF: ' + (error.message || error));
     } finally {
       setPickingPdf(false);
     }
   };
 
-  // Pick an image, store it locally, and write metadata to Firestore.
+  // ── Phase 1 ── Pick an image and open the rename dialog.
   const handleUploadImage = async () => {
     setPickingImage(true);
     const currentUser = auth.currentUser;
@@ -126,50 +109,110 @@ export default function AddNoteScreen({ navigation }: Props) {
       const asset = result.assets[0];
       const filename = asset.fileName || `image_${Date.now()}.jpg`;
 
-      const noteTitle = filename.replace(/\.[^/.]+$/, "");
+      // Pre-fill rename dialog with the filename (no extension)
+      const defaultTitle = filename.replace(/\.[^/.]+$/, '');
+      setPendingUpload({ uri: asset.uri, name: filename, type: 'image' });
+      setRenameValue(defaultTitle);
+      setRenameModalVisible(true);
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error', 'Failed to pick image: ' + (error.message || error));
+    } finally {
+      setPickingImage(false);
+    }
+  };
 
+  // ── Phase 2 ── After User confirmed the name, do the duplicate check and save.
+  const handleConfirmUpload = async () => {
+    if (!pendingUpload) return;
+
+    const noteTitle = renameValue.trim();
+    if (!noteTitle) {
+      Alert.alert('Name required', 'Please enter a name for this note.');
+      return;
+    }
+
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      Alert.alert('Error', 'User is not logged in.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Duplicate-name check (uses the user-supplied title)
       const isDuplicate = await checkDuplicateNote(currentUser.uid, noteTitle);
       if (isDuplicate) {
         Alert.alert(
           'Duplicate Note',
-          'A note with the name "' + noteTitle + '" already exists. Please choose another image or rename it before uploading.'
+          `A note named "${noteTitle}" already exists. Please choose a different name.`
         );
         return;
       }
 
-      const destFilename = `${Date.now()}_${filename}`;
-      const dirPath = `${FileSystem.documentDirectory}notes/${currentUser.uid}/images/`;
-      await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
-      const localDest = `${dirPath}${destFilename}`;
-      await FileSystem.copyAsync({
-        from: asset.uri,
-        to: localDest,
-      });
+      // Copy file to permanent local storage.
+      if (pendingUpload.type === 'document') {
+        const destFilename = `${Date.now()}_${pendingUpload.name}`;
+        const dirPath = `${FileSystem.documentDirectory}notes/${currentUser.uid}/docs/`;
+        await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
+        const localDest = `${dirPath}${destFilename}`;
+        await FileSystem.copyAsync({ from: pendingUpload.uri, to: localDest });
 
-      // Save note title, type, and local file path to Firestore.
-      await addDoc(collection(db, 'notes'), {
-        userId: currentUser.uid,
-        title: noteTitle,
-        type: 'image',
-        fileUrl: localDest,
-        filePath: localDest,
-        pinned: false,
-        summarized: false,
-        summary: '',
-        createdAt: serverTimestamp(),
-      });
+        // Save metadata to Firestore.
+        await addDoc(collection(db, 'notes'), {
+          userId: currentUser.uid,
+          title: noteTitle,
+          type: 'document',
+          fileUrl: localDest,
+          filePath: localDest,
+          pinned: false,
+          summarized: false,
+          summary: '',
+          createdAt: serverTimestamp(),
+        });
+      } else {
+        const destFilename = `${Date.now()}_${pendingUpload.name}`;
+        const dirPath = `${FileSystem.documentDirectory}notes/${currentUser.uid}/images/`;
+        await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
+        const localDest = `${dirPath}${destFilename}`;
+        await FileSystem.copyAsync({ from: pendingUpload.uri, to: localDest });
 
+        await addDoc(collection(db, 'notes'), {
+          userId: currentUser.uid,
+          title: noteTitle,
+          type: 'image',
+          fileUrl: localDest,
+          filePath: localDest,
+          pinned: false,
+          summarized: false,
+          summary: '',
+          createdAt: serverTimestamp(),
+        });
+      }
+
+      // Close modal and go back on success.
+      setRenameModalVisible(false);
+      setPendingUpload(null);
       Alert.alert(
         'Success',
-        'Image saved locally and note created!',
+        pendingUpload.type === 'document'
+          ? 'PDF saved locally and note created!'
+          : 'Image saved locally and note created!',
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error: any) {
       console.error(error);
-      Alert.alert('Error', 'Failed to upload image: ' + (error.message || error));
+      Alert.alert('Error', 'Failed to save note: ' + (error.message || error));
     } finally {
-      setPickingImage(false);
+      setSaving(false);
     }
+  };
+
+  // Dismiss the rename modal and discard the picked file.
+  const handleCancelRename = () => {
+    setRenameModalVisible(false);
+    setPendingUpload(null);
+    setRenameValue('');
   };
 
   return (
@@ -230,6 +273,72 @@ export default function AddNoteScreen({ navigation }: Props) {
         </TouchableOpacity>
 
       </View>
+
+      {/* ── Rename-before-upload modal ── */}
+      <Modal
+        visible={renameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCancelRename}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.renameOverlay}
+        >
+          <View style={styles.renameCard}>
+            {/* Icon badge */}
+            <View style={[
+              styles.renameBadge,
+              pendingUpload?.type === 'document' ? styles.renameBadgePdf : styles.renameBadgeImage,
+            ]}>
+              <Text style={styles.renameBadgeEmoji}>
+                {pendingUpload?.type === 'document' ? '📄' : '🖼️'}
+              </Text>
+            </View>
+
+            <Text style={styles.renameTitle}>Name Your Note</Text>
+            <Text style={styles.renameSubtitle}>
+              You can keep the original name or type a custom one.
+            </Text>
+
+            <TextInput
+              style={styles.renameInput}
+              value={renameValue}
+              onChangeText={setRenameValue}
+              placeholder="Enter note name"
+              placeholderTextColor="#9CA3AF"
+              autoFocus
+              selectTextOnFocus
+              maxLength={80}
+            />
+
+            <View style={styles.renameActions}>
+              <TouchableOpacity
+                style={styles.renameCancelBtn}
+                onPress={handleCancelRename}
+                disabled={saving}
+              >
+                <Text style={styles.renameCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.renameConfirmBtn,
+                  pendingUpload?.type === 'document' ? styles.renameConfirmBtnPdf : styles.renameConfirmBtnImage,
+                ]}
+                onPress={handleConfirmUpload}
+                disabled={saving}
+              >
+                {saving ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.renameConfirmText}>Upload</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -330,5 +439,92 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     textAlign: 'center',
     fontWeight: '400',
+  },
+
+  // ── Rename modal styles ──
+  renameOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  renameCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 24,
+    width: '100%',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  renameBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  renameBadgePdf: { backgroundColor: '#DBEAFE' },
+  renameBadgeImage: { backgroundColor: '#EDE9FE' },
+  renameBadgeEmoji: { fontSize: 28 },
+  renameTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111827',
+    marginBottom: 6,
+  },
+  renameSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  renameInput: {
+    width: '100%',
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 15,
+    color: '#111827',
+    backgroundColor: '#F9FAFB',
+    marginBottom: 22,
+  },
+  renameActions: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  renameCancelBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+  },
+  renameCancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  renameConfirmBtn: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  renameConfirmBtnPdf: { backgroundColor: '#2563EB' },
+  renameConfirmBtnImage: { backgroundColor: '#7C3AED' },
+  renameConfirmText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
 });

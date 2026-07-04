@@ -11,9 +11,13 @@ import {
   Image,
   Platform,
   Share,
+  Modal,
+  TextInput,
+  KeyboardAvoidingView,
+  ActivityIndicator,
 } from 'react-native';
 
-import { togglePinNoteInDb, saveNoteSummary, Note, resolveFileUri } from '../services/noteService';
+import { togglePinNoteInDb, saveNoteSummary, renameNoteInDb, isNoteTitleTaken, Note, resolveFileUri } from '../services/noteService';
 import { summarizeNote, formatSummaryForExport, NoteSummaryData } from '../services/geminiService';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -155,6 +159,12 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
   const [summary, setSummary] = useState(note.summary ?? '');
   const [summarizing, setSummarizing] = useState(false);
 
+  // Rename state
+  const [noteTitle, setNoteTitle] = useState(note.title);
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renaming, setRenaming] = useState(false);
+
   const resolvedFileUrl = resolveFileUri(note.fileUrl);
 
   const handlePinToggle = async () => {
@@ -196,6 +206,43 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     }
   };
 
+  // Opens the rename modal pre-filled with the current title.
+  const handleOpenRename = () => {
+    setRenameValue(noteTitle);
+    setRenameModalVisible(true);
+  };
+
+  // Saves the new title to Firestore and updates local state.
+  const handleConfirmRename = async () => {
+    const trimmed = renameValue.trim();
+    if (!trimmed) {
+      Alert.alert('Name required', 'Please enter a name for this note.');
+      return;
+    }
+    if (trimmed === noteTitle) {
+      setRenameModalVisible(false);
+      return;
+    }
+    setRenaming(true);
+    try {
+      const isDuplicate = await isNoteTitleTaken(note.userId, trimmed, note.id);
+
+      if (isDuplicate) {
+        Alert.alert('Name already used', 'Another note already has this name. Please choose a different one.');
+        setRenaming(false);
+        return;
+      }
+
+      await renameNoteInDb(note.id, trimmed);
+      setNoteTitle(trimmed);
+      setRenameModalVisible(false);
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to rename note: ' + (error.message || error));
+    } finally {
+      setRenaming(false);
+    }
+  };
+
   const handleResummarize = () => {
     Alert.alert('Resummarize', 'Regenerate AI summary?', [
       { text: 'Cancel', style: 'cancel' },
@@ -208,51 +255,6 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
         },
       },
     ]);
-  };
-
-  // Downloads remote files to a local temp path before sharing (Sharing requires a local URI).
-  const handleShare = async () => {
-    if (!resolvedFileUrl) {
-      Alert.alert('Error', 'No file URI associated with this note.');
-      return;
-    }
-
-    try {
-      let localUri = resolvedFileUrl;
-
-      if (resolvedFileUrl.startsWith('http://') || resolvedFileUrl.startsWith('https://')) {
-        const filename = resolvedFileUrl.substring(resolvedFileUrl.lastIndexOf('/') + 1).split('?')[0];
-        const localDest = `${FileSystem.documentDirectory}notes/${note.userId}/${note.type === 'document' ? 'docs' : 'images'}/`;
-
-        // Ensure directory exists
-        await FileSystem.makeDirectoryAsync(localDest, { intermediates: true });
-
-        const fullPath = `${localDest}${filename}`;
-        const fileInfo = await FileSystem.getInfoAsync(fullPath);
-        if (!fileInfo.exists) {
-          Alert.alert('Downloading', 'Downloading file to share...');
-          const downloadResult = await FileSystem.downloadAsync(resolvedFileUrl, fullPath);
-          localUri = downloadResult.uri;
-        } else {
-          localUri = fullPath;
-        }
-      } else {
-        const fileInfo = await FileSystem.getInfoAsync(localUri);
-        if (!fileInfo.exists) {
-          Alert.alert('Error', 'The local file could not be found on this device.');
-          return;
-        }
-      }
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(localUri);
-      } else {
-        Alert.alert('Error', 'Sharing is not available on this device.');
-      }
-    } catch (error: any) {
-      console.error(error);
-      Alert.alert('Error', 'Could not share file: ' + error.message);
-    }
   };
 
   // The stored "summary" is JSON for new notes, plain text for old (pre-JSON) notes.
@@ -270,7 +272,10 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
   };
 
   const handleShareSummary = async () => {
-    if (!summary) return;
+    if (!summary) {
+      Alert.alert('No Summary Available', 'Please generate an AI summary first before sharing it.');
+      return;
+    }
     try {
       await Share.share({
         message: `AI Summary of ${note.title}:\n\n${getSummaryExportText()}`,
@@ -283,70 +288,49 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
 
   // Exports the AI Summary text as a local .txt file.
   const handleDownloadSummary = async () => {
-    if (!summary) return;
-    try {
-      const sanitizedTitle = note.title.toLowerCase().replace(/\s+/g, '_');
-      const filename = `${sanitizedTitle}_summary.txt`;
-      const tempUri = `${FileSystem.documentDirectory}${filename}`;
-
-      await FileSystem.writeAsStringAsync(tempUri, getSummaryExportText(), {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(tempUri);
-      } else {
-        Alert.alert('Success', 'Summary saved to local storage.');
-      }
-    } catch (error: any) {
-      Alert.alert('Error', 'Failed to download summary: ' + error.message);
-    }
-  };
-
-  // Downloads remote files to local storage or exports local files to system downloads.
-  const handleDownload = async () => {
-    if (!resolvedFileUrl) {
-      Alert.alert('Error', 'No file URI associated with this note.');
+    if (!summary) {
+      Alert.alert('No Summary Available', 'Please generate an AI summary first before exporting it.');
       return;
     }
 
+    const sanitizedTitle = note.title.toLowerCase().replace(/\s+/g, '_');
+    const filename = `${sanitizedTitle}_summary.txt`;
+    const content = getSummaryExportText();
+
     try {
-      if (resolvedFileUrl.startsWith('file://')) {
-        if (await Sharing.isAvailableAsync()) {
-          Alert.alert('Export File', 'Save this file to your device storage.', [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Save/Export',
-              onPress: async () => {
-                await Sharing.shareAsync(resolvedFileUrl);
-              }
-            }
-          ]);
-        } else {
-          Alert.alert('Local File', 'This file is already stored locally on your device.');
+      if (Platform.OS === 'android') {
+        // Ask user to pick a directory (e.g. Downloads) and write straight into it.
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (!permissions.granted) {
+          Alert.alert('Permission needed', 'Please grant folder access to save the file.');
+          return;
         }
-        return;
+
+        const fileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+          permissions.directoryUri,
+          filename,
+          'text/plain'
+        );
+        await FileSystem.writeAsStringAsync(fileUri, content, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        Alert.alert('Downloaded', 'Summary saved to the selected folder.');
+      } else {
+        // iOS: no public writable "Downloads" — share sheet's "Save to Files" is the platform-correct save path.
+        const tempUri = `${FileSystem.documentDirectory}${filename}`;
+        await FileSystem.writeAsStringAsync(tempUri, content, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(tempUri, { UTI: 'public.plain-text' });
+        } else {
+          Alert.alert('Success', 'Summary saved to local storage.');
+        }
       }
-
-      const filename = resolvedFileUrl.substring(resolvedFileUrl.lastIndexOf('/') + 1).split('?')[0];
-      const dirPath = `${FileSystem.documentDirectory}notes/${note.userId}/${note.type === 'document' ? 'docs' : 'images'}/`;
-
-      await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
-
-      const localDest = `${dirPath}${filename}`;
-
-      const fileInfo = await FileSystem.getInfoAsync(localDest);
-      if (fileInfo.exists) {
-        Alert.alert('Local File', 'This file was already downloaded to your device.');
-        return;
-      }
-
-      Alert.alert('Downloading', 'Downloading file...');
-      await FileSystem.downloadAsync(resolvedFileUrl, localDest);
-      Alert.alert('Success', 'File downloaded successfully to local storage.');
     } catch (error: any) {
-      console.error(error);
-      Alert.alert('Error', 'Download failed: ' + error.message);
+      Alert.alert('Error', 'Failed to download summary: ' + error.message);
     }
   };
 
@@ -433,7 +417,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
 
           {/* Share */}
           <TouchableOpacity
-            onPress={handleShare}
+            onPress={handleShareSummary}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.headerIconBtn}
           >
@@ -442,7 +426,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
 
           {/* Download */}
           <TouchableOpacity
-            onPress={handleDownload}
+            onPress={handleDownloadSummary}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.headerIconBtn}
           >
@@ -456,8 +440,17 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title */}
-        <Text style={styles.title}>{note.title}</Text>
+        {/* Title — tapping the pencil opens rename modal */}
+        <View style={styles.titleRow}>
+          <Text style={styles.title} numberOfLines={2}>{noteTitle}</Text>
+          <TouchableOpacity
+            onPress={handleOpenRename}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={styles.titleEditBtn}
+          >
+            <Text style={styles.titleEditIcon}>✏️</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Original Note card */}
         <View style={styles.card}>
@@ -481,7 +474,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
             <View style={styles.fileInfo}>
               <Text style={styles.fileLabel}>Original Note</Text>
               <Text style={styles.fileName}>
-                {note.title.toLowerCase().replace(/\s+/g, '_')}.
+                {noteTitle.toLowerCase().replace(/\s+/g, '_')}.
                 {note.type === 'document' ? 'pdf' : 'jpg'}
               </Text>
             </View>
@@ -564,6 +557,57 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
           )}
         </View>
       </ScrollView>
+
+      {/* Rename modal*/}
+      <Modal
+        visible={renameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRenameModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.renameOverlay}
+        >
+          <View style={styles.renameCard}>
+            <Text style={styles.renameTitle}>Rename Note</Text>
+            <Text style={styles.renameSubtitle}>Enter a new name for this note.</Text>
+
+            <TextInput
+              style={styles.renameInput}
+              value={renameValue}
+              onChangeText={setRenameValue}
+              placeholder="Note name"
+              placeholderTextColor="#9CA3AF"
+              autoFocus
+              selectTextOnFocus
+              maxLength={80}
+            />
+
+            <View style={styles.renameActions}>
+              <TouchableOpacity
+                style={styles.renameCancelBtn}
+                onPress={() => setRenameModalVisible(false)}
+                disabled={renaming}
+              >
+                <Text style={styles.renameCancelText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.renameConfirmBtn}
+                onPress={handleConfirmRename}
+                disabled={renaming}
+              >
+                {renaming ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <Text style={styles.renameConfirmText}>Save</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -584,7 +628,38 @@ const styles = StyleSheet.create({
   headerIconActive: { color: '#7C3AED' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 48, gap: 16 },
-  title: { fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 4 },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  title: { flex: 1, fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 4 },
+  titleEditBtn: { paddingTop: 2 },
+  titleEditIcon: { fontSize: 18 },
+  // Rename modal
+  renameOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28,
+  },
+  renameCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 20, padding: 24, width: '100%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15, shadowRadius: 20, elevation: 12,
+  },
+  renameTitle: { fontSize: 18, fontWeight: '800', color: '#111827', marginBottom: 4 },
+  renameSubtitle: { fontSize: 13, color: '#6B7280', marginBottom: 18 },
+  renameInput: {
+    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 11,
+    fontSize: 15, color: '#111827', backgroundColor: '#F9FAFB', marginBottom: 20,
+  },
+  renameActions: { flexDirection: 'row', gap: 12 },
+  renameCancelBtn: {
+    flex: 1, paddingVertical: 13, borderRadius: 12,
+    backgroundColor: '#F3F4F6', alignItems: 'center',
+  },
+  renameCancelText: { fontSize: 15, fontWeight: '700', color: '#374151' },
+  renameConfirmBtn: {
+    flex: 1, paddingVertical: 13, borderRadius: 12,
+    backgroundColor: '#2563EB', alignItems: 'center',
+  },
+  renameConfirmText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   card: {
     backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },

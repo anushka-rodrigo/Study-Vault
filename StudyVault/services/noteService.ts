@@ -189,3 +189,33 @@ export const saveNoteSummary = async (noteId: string, summaryText: string): Prom
     throw error;
   }
 };
+
+export const renameNoteInDb = async (noteId: string, newTitle: string): Promise<void> => {
+  try {
+    const noteDocRef = doc(db, 'notes', noteId);
+    await updateDoc(noteDocRef, { title: newTitle });
+  } catch (error) {
+    console.error('Error renaming note in Firestore:', error);
+    throw error;
+  }
+};
+
+export const isNoteTitleTaken = async (
+  userId: string,
+  title: string,
+  excludeNoteId: string
+): Promise<boolean> => {
+  try {
+    const notesRef = collection(db, 'notes');
+    const q = query(
+      notesRef,
+      where('userId', '==', userId),
+      where('title', '==', title)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.some((docSnap) => docSnap.id !== excludeNoteId);
+  } catch (error) {
+    console.error('Error checking duplicate note title:', error);
+    throw error;
+  }
+};
