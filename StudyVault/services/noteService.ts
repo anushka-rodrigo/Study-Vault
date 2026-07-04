@@ -15,24 +15,8 @@ import {
 import { db, storage } from '../config/firebase';
 import { ref, deleteObject } from 'firebase/storage';
 import * as FileSystem from 'expo-file-system/legacy';
-
-// Resolves a stored fileUrl/filePath into a valid absolute file URI.
-export const resolveFileUri = (fileUrlOrPath?: string): string => {
-  if (!fileUrlOrPath) return '';
-  if (fileUrlOrPath.startsWith('http://') || fileUrlOrPath.startsWith('https://')) {
-    return fileUrlOrPath;
-  }
-
-  const filename = fileUrlOrPath.substring(fileUrlOrPath.lastIndexOf('/') + 1).split('?')[0];
-
-  if (fileUrlOrPath.includes('/notes/')) {
-    const notesIdx = fileUrlOrPath.indexOf('/notes/');
-    const relativePath = fileUrlOrPath.substring(notesIdx + 1);
-    return `${FileSystem.documentDirectory}${relativePath}`;
-  }
-
-  return `${FileSystem.documentDirectory}${filename}`;
-};
+import { resolveFileUri } from './fileStorageService';
+export { resolveFileUri } from './fileStorageService';
 
 export type Note = {
   id: string;
@@ -208,10 +192,10 @@ export const renameNoteInDb = async (noteId: string, newTitle: string): Promise<
 export const searchNotesByTitle = (notes: Note[], searchQuery: string): Note[] => {
   const trimmedQuery = searchQuery.trim().toLowerCase();
   if (!trimmedQuery) return notes;
- 
+
   const startsWith: Note[] = [];
   const contains: Note[] = [];
- 
+
   for (const note of notes) {
     const title = note.title?.toLowerCase() || '';
     if (title.startsWith(trimmedQuery)) {
@@ -220,7 +204,7 @@ export const searchNotesByTitle = (notes: Note[], searchQuery: string): Note[] =
       contains.push(note);
     }
   }
- 
+
   return [...startsWith, ...contains];
 };
 
@@ -244,3 +228,4 @@ export const isNoteTitleTaken = async (
     throw error;
   }
 };
+
