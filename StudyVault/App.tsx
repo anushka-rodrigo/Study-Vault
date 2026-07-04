@@ -10,6 +10,7 @@ import AddNoteScreen from './screens/AddNoteScreen';
 import FolderDetailScreen from './screens/FolderDetailScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ChangePasswordScreen from './screens/ChangePasswordScreen';
+import QuizScreen from './screens/QuizScreen';
 
 export type RootStackParamList = {
   Login: undefined;
@@ -27,6 +28,10 @@ export type RootStackParamList = {
   };
   Profile: undefined;
   ChangePassword: undefined;
+  Quiz: {
+    title: string;
+    summary: string;
+  };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -46,6 +51,7 @@ export default function App() {
         <Stack.Screen name="FolderDetail" component={FolderDetailScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Profile" component={ProfileScreen} options={{ headerShown: false }} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Quiz" component={QuizScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
