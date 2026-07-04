@@ -21,10 +21,18 @@ import {
   addNote,
   deleteNoteFromDb,
   togglePinNoteInDb,
+  searchNotesByTitle,
   Note
 } from '../services/noteService';
 
-import { Folder, fetchFolders, createFolder, deleteFolderFromDb, removeNoteFromFolderInDb } from '../services/folderService';
+import {
+  Folder,
+  fetchFolders,
+  createFolder,
+  deleteFolderFromDb,
+  removeNoteFromFolderInDb,
+  searchFoldersByName,
+} from '../services/folderService';
 
 type Props = {
   navigation: any;
@@ -39,6 +47,10 @@ export default function DbHomeScreen({ navigation }: Props) {
   const [loadingFolders, setLoadingFolders] = useState<boolean>(false);
   const [folderModalVisible, setFolderModalVisible] = useState(false);
   const [folderName, setFolderName] = useState('');
+
+  // Search queries: list view searches notes by title, group view searches folders by name.
+  const [noteSearchQuery, setNoteSearchQuery] = useState('');
+  const [folderSearchQuery, setFolderSearchQuery] = useState('');
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -169,6 +181,12 @@ export default function DbHomeScreen({ navigation }: Props) {
     return 0;
   });
 
+  // Filter the (already sorted) notes by title using the search service function.
+  const displayedNotes = searchNotesByTitle(sortedNotes, noteSearchQuery);
+
+  // Filter folders by name using the search service function.
+  const displayedFolders = searchFoldersByName(folders, folderSearchQuery);
+
 
 
   const renderNote = ({ item }: { item: Note }) => (
@@ -260,15 +278,38 @@ export default function DbHomeScreen({ navigation }: Props) {
       >
         <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>+ Create Folder</Text>
       </TouchableOpacity>
+      {folders.length > 0 && (
+        <View style={styles.groupSearchBoxWrapper}>
+          <Text style={styles.searchIcon}>🔍</Text>
+          <TextInput
+            placeholder="Search folders by name"
+            placeholderTextColor="#9CA3AF"
+            value={folderSearchQuery}
+            onChangeText={setFolderSearchQuery}
+            style={styles.searchInput}
+            returnKeyType="search"
+          />
+          {folderSearchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setFolderSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Text style={styles.searchClearIcon}>✕</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
       {loadingFolders ? (
         <ActivityIndicator size="small" color="#2563EB" />
       ) : folders.length === 0 ? (
         <View style={styles.groupContainer}>
           <Text style={styles.groupEmptyText}>No folders created yet.</Text>
         </View>
+      ) : displayedFolders.length === 0 ? (
+        <View style={styles.groupContainer}>
+          <Text style={styles.groupEmptyText}>No folders match "{folderSearchQuery}".</Text>
+        </View>
       ) : (
         <FlatList
-          data={folders}
+          data={displayedFolders}
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <TouchableOpacity
@@ -351,14 +392,40 @@ export default function DbHomeScreen({ navigation }: Props) {
           </View>
         ) : activeTab === 'list' ? (
           <View style={{ flex: 1 }}>
-            <FlatList
-              data={sortedNotes}
-              keyExtractor={item => item.id}
-              renderItem={renderNote}
-              contentContainerStyle={styles.listContent}
-              showsVerticalScrollIndicator={false}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
+            {notes.length > 0 && (
+              <View style={styles.searchBoxWrapper}>
+                <Text style={styles.searchIcon}>🔍</Text>
+                <TextInput
+                  placeholder="Search files by name"
+                  placeholderTextColor="#9CA3AF"
+                  value={noteSearchQuery}
+                  onChangeText={setNoteSearchQuery}
+                  style={styles.searchInput}
+                  returnKeyType="search"
+                />
+                {noteSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setNoteSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Text style={styles.searchClearIcon}>✕</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+            {displayedNotes.length === 0 ? (
+              <View style={styles.groupContainer}>
+                <Text style={styles.groupEmptyText}>
+                  {notes.length === 0 ? 'No notes yet.' : `No files match "${noteSearchQuery}".`}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={displayedNotes}
+                keyExtractor={item => item.id}
+                renderItem={renderNote}
+                contentContainerStyle={styles.listContent}
+                showsVerticalScrollIndicator={false}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+              />
+            )}
           </View>
         ) : (
           renderGroupView()
@@ -471,6 +538,21 @@ const styles = StyleSheet.create({
   noteActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pinIcon: { fontSize: 18 },
   deleteIconImage: { width: 20, height: 20 },
+  searchBoxWrapper: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFFFFF', borderRadius: 10,
+    paddingHorizontal: 12, marginHorizontal: 16, marginBottom: 12,
+    height: 42, borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  groupSearchBoxWrapper: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFFFFF', borderRadius: 10,
+    paddingHorizontal: 12, marginBottom: 12,
+    height: 42, borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  searchIcon: { fontSize: 15, marginRight: 8 },
+  searchInput: { flex: 1, fontSize: 14, color: '#111827', padding: 0 },
+  searchClearIcon: { fontSize: 14, color: '#9CA3AF', paddingHorizontal: 4 },
   groupContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   groupEmptyText: { fontSize: 16, color: '#9CA3AF', fontWeight: '500' },
   fab: {
