@@ -24,9 +24,10 @@ export type QuizResult = {
 
 const SYSTEM_PROMPT = `You are a study assistant that creates short revision quizzes for a university student, based ONLY on a summary of their notes.
 
-Write between 10 and 15 simple, exam-style questions that test recall and basic understanding of the material in the summary. Keep each question short and direct, like a quick revision quiz — not a complex exam.
+Write exactly 15 simple, exam-style questions if the summary has enough distinct content to support that many without repeating the same fact; otherwise write as many as the content genuinely supports, down to a minimum of 10. Keep each question short and direct, like a quick revision quiz — not a complex exam.
 
 Rules:
+- IMPORTANT: You must fully finish the list before stopping. Do not stop partway through — keep every question SHORT (under 15 words each) specifically so the full set fits comfortably. Never leave the array incomplete.
 - Base every question ONLY on the content given in the summary below. Never invent facts that are not present in it.
 - If the summary includes formulas or a worked example, include a few small numeric/calculation questions that apply the same formula or method using simple numbers.
 - Do NOT include answers, answer choices, or space for answering — return ONLY the question text itself.
@@ -109,12 +110,17 @@ export const generateQuiz = async (summaryText: string, title: string): Promise<
         },
       ],
       generationConfig: {
-        maxOutputTokens: 2048,
+        // Generous headroom: thinking tokens are deducted from this same
+        // budget, and a truncated response was silently ending up with only
+        // ~14/15 questions instead of erroring. Raising this (plus capping
+        // thinkingBudget lower) leaves plenty of room for the visible
+        // question list to always finish completely.
+        maxOutputTokens: 4096,
         temperature: 0.4,
         responseMimeType: 'application/json',
         responseSchema: RESPONSE_SCHEMA,
         thinkingConfig: {
-          thinkingBudget: 512,
+          thinkingBudget: 256,
         },
       },
     };
