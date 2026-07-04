@@ -74,6 +74,13 @@ export const deleteFolderFromDb = async (folderId: string): Promise<void> => {
   await deleteDoc(folderDocRef);
 };
 
+// Renames an existing folder. Mirrors renameNoteInDb in noteService.ts so
+// folders can be renamed after creation, not just at creation time.
+export const renameFolderInDb = async (folderId: string, newName: string): Promise<void> => {
+  const folderDocRef = doc(db, 'folders', folderId);
+  await updateDoc(folderDocRef, { name: newName });
+};
+
 // Client-side search: filters an already-fetched folder list by folder name.
 // Case-insensitive. Results are ranked so names that START WITH the query
 // appear first, followed by names that merely CONTAIN the query elsewhere.
@@ -92,7 +99,7 @@ export const searchFoldersByName = (folders: Folder[], searchQuery: string): Fol
       contains.push(folder);
     }
   }
-  
+
   return [...startsWith, ...contains];
 };
 

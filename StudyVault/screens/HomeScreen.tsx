@@ -321,6 +321,7 @@ export default function DbHomeScreen({ navigation }: Props) {
               onPress={() => navigation.navigate('FolderDetail', {
                 folder: item,
                 allNotes: notes,
+                allFolders: folders,
                 onUpdate: (updatedFolder: Folder) => {
                   setFolders(prev => prev.map(f => f.id === updatedFolder.id ? updatedFolder : f));
                 }

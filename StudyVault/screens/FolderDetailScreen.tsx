@@ -10,9 +10,10 @@ import {
   Alert,
   Image,
   Modal,
+  TextInput,
 } from 'react-native';
 
-import { addNoteToFolderInDb, removeNoteFromFolderInDb } from '../services/folderService';
+import { addNoteToFolderInDb, removeNoteFromFolderInDb, renameFolderInDb } from '../services/folderService';
 
 type Note = {
   id: string;
@@ -36,15 +37,21 @@ type Props = {
     params: {
       folder: Folder;
       allNotes: Note[];
+      allFolders?: Folder[];
       onUpdate: (updated: Folder) => void;
     };
   };
 };
 
 export default function FolderDetailScreen({ navigation, route }: Props) {
-  const { allNotes, onUpdate } = route.params;
+  const { allNotes, onUpdate, allFolders = [] } = route.params;
   const [folder, setFolder] = useState<Folder>(route.params.folder);
   const [addModalVisible, setAddModalVisible] = useState(false);
+
+  // Rename state
+  const [renameModalVisible, setRenameModalVisible] = useState(false);
+  const [renameValue, setRenameValue] = useState('');
+  const [renaming, setRenaming] = useState(false);
 
   const folderNotes = allNotes.filter(n => folder.noteIds.includes(n.id));
 
@@ -53,6 +60,46 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
   const updateFolder = (updated: Folder) => {
     setFolder(updated);
     onUpdate(updated);
+  };
+
+  // Opens the rename modal pre-filled with the current folder name.
+  const handleOpenRename = () => {
+    setRenameValue(folder.name);
+    setRenameModalVisible(true);
+  };
+
+  const handleConfirmRename = async () => {
+    const trimmed = renameValue.trim();
+
+    if (!trimmed) {
+      Alert.alert('Invalid Name', 'Folder name cannot be empty.');
+      return;
+    }
+
+    if (trimmed === folder.name) {
+      setRenameModalVisible(false);
+      return;
+    }
+
+    const isDuplicate = allFolders.some(
+      f => f.id !== folder.id && f.name.toLowerCase() === trimmed.toLowerCase()
+    );
+    if (isDuplicate) {
+      Alert.alert('Duplicate Folder', 'A folder with this name already exists. Please choose a different name.');
+      return;
+    }
+
+    setRenaming(true);
+    try {
+      await renameFolderInDb(folder.id, trimmed);
+      const updated = { ...folder, name: trimmed };
+      updateFolder(updated);
+      setRenameModalVisible(false);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to rename folder.');
+    } finally {
+      setRenaming(false);
+    }
   };
 
   const removeNoteFromFolder = (noteId: string) => {
@@ -166,7 +213,16 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
 
         {/* Folder title + Add Notes button */}
         <View style={styles.folderHeader}>
-          <Text style={styles.folderTitle}>{folder.name}</Text>
+          <View style={styles.folderTitleRow}>
+            <Text style={styles.folderTitle}>{folder.name}</Text>
+            <TouchableOpacity
+              onPress={handleOpenRename}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={styles.renameIconBtn}
+            >
+              <Text style={styles.renameIcon}>✏️</Text>
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity
             style={styles.addNotesBtn}
             onPress={() => setAddModalVisible(true)}
@@ -227,6 +283,44 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Rename Folder Modal */}
+      <Modal
+        visible={renameModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setRenameModalVisible(false)}
+      >
+        <View style={styles.renameOverlay}>
+          <View style={styles.renameCard}>
+            <Text style={styles.renameTitle}>Rename Folder</Text>
+            <Text style={styles.renameSubtitle}>Enter a new name for this folder.</Text>
+            <TextInput
+              style={styles.renameInput}
+              value={renameValue}
+              onChangeText={setRenameValue}
+              autoFocus
+              placeholder="Folder name"
+            />
+            <View style={styles.renameActions}>
+              <TouchableOpacity
+                style={styles.renameCancelBtn}
+                onPress={() => setRenameModalVisible(false)}
+                disabled={renaming}
+              >
+                <Text style={styles.renameCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.renameConfirmBtn}
+                onPress={handleConfirmRename}
+                disabled={renaming}
+              >
+                <Text style={styles.renameConfirmText}>{renaming ? 'Saving...' : 'Save'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -264,7 +358,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
   },
-  folderTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
+  folderTitleRow: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginRight: 12 },
+  folderTitle: { fontSize: 20, fontWeight: '800', color: '#111827', flexShrink: 1 },
+  renameIconBtn: { marginLeft: 8, padding: 2 },
+  renameIcon: { fontSize: 16 },
   addNotesBtn: {
     backgroundColor: '#2563EB', borderRadius: 10,
     paddingHorizontal: 16, paddingVertical: 8,
@@ -322,4 +419,28 @@ const styles = StyleSheet.create({
     paddingVertical: 14, alignItems: 'center',
   },
   modalCloseBtnText: { fontSize: 15, fontWeight: '700', color: '#374151' },
+
+  // Rename modal
+  renameOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32,
+  },
+  renameCard: {
+    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%',
+  },
+  renameTitle: { fontSize: 18, fontWeight: '800', color: '#111827', marginBottom: 4 },
+  renameSubtitle: { fontSize: 13, color: '#6B7280', marginBottom: 18 },
+  renameInput: {
+    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#111827', marginBottom: 20,
+  },
+  renameActions: { flexDirection: 'row', gap: 12 },
+  renameCancelBtn: {
+    flex: 1, padding: 12, borderRadius: 10, backgroundColor: '#E5E7EB', alignItems: 'center',
+  },
+  renameCancelText: { fontSize: 15, fontWeight: '700', color: '#374151' },
+  renameConfirmBtn: {
+    flex: 1, padding: 12, borderRadius: 10, backgroundColor: '#2563EB', alignItems: 'center',
+  },
+  renameConfirmText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
 });
