@@ -530,6 +530,14 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
               </View>
 
               <TouchableOpacity
+                style={[styles.actionButton, styles.quizButton]}
+                onPress={() => navigation.navigate('Quiz', { title: noteTitle, summary })}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.quizButtonText}>Generate Quiz</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
                 style={styles.actionButton}
                 onPress={handleResummarize}
                 activeOpacity={0.8}
@@ -695,6 +703,8 @@ const styles = StyleSheet.create({
   },
   actionButtonDisabled: { opacity: 0.5 },
   actionButtonText: { fontSize: 15, fontWeight: '700', color: '#2563EB' },
+  quizButton: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
+  quizButtonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
   imagePreviewCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
