@@ -23,6 +23,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
 
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
+
 type Props = {
   navigation: any;
   route: {
@@ -34,7 +37,8 @@ type Props = {
 };
 
 // Renders a structured AI summary (real bold/section components, no markdown parsing).
-function StructuredSummary({ data }: { data: NoteSummaryData }) {
+function StructuredSummary({ data, colors }: { data: NoteSummaryData; colors: ThemeColors }) {
+  const summaryStyles = getSummaryStyles(colors);
   return (
     <View style={{ gap: 18 }}>
       <View style={{ gap: 6 }}>
@@ -86,7 +90,8 @@ function StructuredSummary({ data }: { data: NoteSummaryData }) {
 
 // Fallback renderer for old notes summarized before the JSON format was introduced
 // (their "summary" field in Firestore is plain markdown-ish text, not JSON).
-function LegacySummaryText({ text }: { text: string }) {
+function LegacySummaryText({ text, colors }: { text: string; colors: ThemeColors }) {
+  const summaryStyles = getSummaryStyles(colors);
   const lines = text.split('\n');
   return (
     <View style={{ gap: 4 }}>
@@ -130,29 +135,34 @@ function LegacySummaryText({ text }: { text: string }) {
 }
 
 // Tries to parse the stored summary as structured JSON; falls back to legacy text rendering.
-function SummaryContent({ text }: { text: string }) {
+function SummaryContent({ text, colors }: { text: string; colors: ThemeColors }) {
   try {
     const parsed = JSON.parse(text);
     if (parsed && typeof parsed === 'object' && Array.isArray(parsed.keyTopics)) {
-      return <StructuredSummary data={parsed as NoteSummaryData} />;
+      return <StructuredSummary data={parsed as NoteSummaryData} colors={colors} />;
     }
   } catch {
     // Not JSON — fall through to legacy renderer below.
   }
-  return <LegacySummaryText text={text} />;
+  return <LegacySummaryText text={text} colors={colors} />;
 }
 
-const summaryStyles = StyleSheet.create({
-  sectionHeading: { fontSize: 14, fontWeight: '800', color: '#2563EB', textTransform: 'uppercase', letterSpacing: 0.3 },
-  formula: { fontSize: 14, fontWeight: '700', color: '#111827', fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
-  paragraph: { fontSize: 14, color: '#374151', lineHeight: 22 },
-  bold: { fontWeight: '700', color: '#111827' },
+// summaryStyles depends on the active theme, so it's a function called with
+// the current palette rather than a static StyleSheet.create() at module scope.
+const getSummaryStyles = (colors: ThemeColors) => StyleSheet.create({
+  sectionHeading: { fontSize: 14, fontWeight: '800', color: colors.header, textTransform: 'uppercase', letterSpacing: 0.3 },
+  formula: { fontSize: 14, fontWeight: '700', color: colors.text, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  paragraph: { fontSize: 14, color: colors.textSecondary, lineHeight: 22 },
+  bold: { fontWeight: '700', color: colors.text },
   bulletRow: { flexDirection: 'row', gap: 8, paddingLeft: 4 },
-  bullet: { fontSize: 14, color: '#374151', lineHeight: 22 },
-  bulletText: { flex: 1, fontSize: 14, color: '#374151', lineHeight: 22 },
+  bullet: { fontSize: 14, color: colors.textSecondary, lineHeight: 22 },
+  bulletText: { flex: 1, fontSize: 14, color: colors.textSecondary, lineHeight: 22 },
 });
 
 export default function DbNoteDetailScreen({ navigation, route }: Props) {
+  const { colors, mode } = useTheme();
+  const styles = getStyles(colors);
+
   const { note, onPinToggle } = route.params;
   const [pinned, setPinned] = useState(note.pinned);
   const [summarized, setSummarized] = useState(note.summarized);
@@ -391,7 +401,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -508,7 +518,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
           {summarized && summary ? (
             <>
               <View style={styles.summaryBody}>
-                <SummaryContent text={summary} />
+                <SummaryContent text={summary} colors={colors} />
               </View>
 
               <View style={styles.summaryActionsRow}>
@@ -586,7 +596,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
               value={renameValue}
               onChangeText={setRenameValue}
               placeholder="Note name"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.placeholder}
               autoFocus
               selectTextOnFocus
               maxLength={80}
@@ -607,7 +617,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
                 disabled={renaming}
               >
                 {renaming ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator color={colors.primaryButtonText} size="small" />
                 ) : (
                   <Text style={styles.renameConfirmText}>Save</Text>
                 )}
@@ -620,93 +630,93 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F8F9FB' },
+const getStyles = (colors: ThemeColors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.background },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
     paddingTop: (StatusBar.currentHeight || 24) + 10,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   headerIconBtn: { width: 36, height: 36, justifyContent: 'center', alignItems: 'center' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  backArrow: { fontSize: 22, color: '#374151', fontWeight: '600' },
-  headerIconText: { fontSize: 20, color: '#6B7280' },
+  backArrow: { fontSize: 22, color: colors.text, fontWeight: '600' },
+  headerIconText: { fontSize: 20, color: colors.textSecondary },
   headerIconActive: { color: '#7C3AED' },
   scroll: { flex: 1 },
   scrollContent: { padding: 16, paddingBottom: 48, gap: 16 },
   titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  title: { flex: 1, fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 4 },
+  title: { flex: 1, fontSize: 20, fontWeight: '800', color: colors.text, marginBottom: 4 },
   titleEditBtn: { paddingTop: 2 },
   titleEditIcon: { fontSize: 18 },
   // Rename modal
   renameOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    flex: 1, backgroundColor: colors.overlay,
     justifyContent: 'center', alignItems: 'center', paddingHorizontal: 28,
   },
   renameCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 20, padding: 24, width: '100%',
+    backgroundColor: colors.surface, borderRadius: 20, padding: 24, width: '100%',
     shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.15, shadowRadius: 20, elevation: 12,
   },
-  renameTitle: { fontSize: 18, fontWeight: '800', color: '#111827', marginBottom: 4 },
-  renameSubtitle: { fontSize: 13, color: '#6B7280', marginBottom: 18 },
+  renameTitle: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 4 },
+  renameSubtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: 18 },
   renameInput: {
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
     paddingHorizontal: 14, paddingVertical: 11,
-    fontSize: 15, color: '#111827', backgroundColor: '#F9FAFB', marginBottom: 20,
+    fontSize: 15, color: colors.text, backgroundColor: colors.inputBackground, marginBottom: 20,
   },
   renameActions: { flexDirection: 'row', gap: 12 },
   renameCancelBtn: {
     flex: 1, paddingVertical: 13, borderRadius: 12,
-    backgroundColor: '#F3F4F6', alignItems: 'center',
+    backgroundColor: colors.border, alignItems: 'center',
   },
-  renameCancelText: { fontSize: 15, fontWeight: '700', color: '#374151' },
+  renameCancelText: { fontSize: 15, fontWeight: '700', color: colors.text },
   renameConfirmBtn: {
     flex: 1, paddingVertical: 13, borderRadius: 12,
-    backgroundColor: '#2563EB', alignItems: 'center',
+    backgroundColor: colors.primaryButton, alignItems: 'center',
   },
-  renameConfirmText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  renameConfirmText: { fontSize: 15, fontWeight: '700', color: colors.primaryButtonText },
   card: {
-    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 16,
+    backgroundColor: colors.surface, borderRadius: 16, padding: 16,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 6, elevation: 2, gap: 14,
   },
   fileRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   fileIconCircle: {
-    width: 48, height: 48, borderRadius: 12, backgroundColor: '#2563EB',
+    width: 48, height: 48, borderRadius: 12, backgroundColor: colors.header,
     justifyContent: 'center', alignItems: 'center',
   },
   fileIconImg: { width: 28, height: 28 },
   fileInfo: { flex: 1 },
-  fileLabel: { fontSize: 14, fontWeight: '700', color: '#111827' },
-  fileName: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  fileLabel: { fontSize: 14, fontWeight: '700', color: colors.text },
+  fileName: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
   openFileBtn: {
     width: 34, height: 34, borderRadius: 8,
-    borderWidth: 1.5, borderColor: '#E5E7EB',
+    borderWidth: 1.5, borderColor: colors.border,
     justifyContent: 'center', alignItems: 'center',
   },
-  openFileIcon: { fontSize: 16, color: '#2563EB', fontWeight: '700' },
+  openFileIcon: { fontSize: 16, color: colors.header, fontWeight: '700' },
   summaryHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   summaryIconCircle: {
-    width: 34, height: 34, borderRadius: 10, backgroundColor: '#2563EB',
+    width: 34, height: 34, borderRadius: 10, backgroundColor: colors.header,
     justifyContent: 'center', alignItems: 'center',
   },
-  summaryIconText: { fontSize: 16, color: '#FFFFFF', fontWeight: '700' },
-  summaryTitle: { fontSize: 17, fontWeight: '800', color: '#111827' },
+  summaryIconText: { fontSize: 16, color: colors.headerText, fontWeight: '700' },
+  summaryTitle: { fontSize: 17, fontWeight: '800', color: colors.text },
   summaryBody: { gap: 4 },
-  notSummarizedText: { fontSize: 14, color: '#6B7280', lineHeight: 22 },
+  notSummarizedText: { fontSize: 14, color: colors.textSecondary, lineHeight: 22 },
   actionButton: {
-    borderRadius: 12, borderWidth: 1.5, borderColor: '#2563EB',
+    borderRadius: 12, borderWidth: 1.5, borderColor: colors.header,
     paddingVertical: 13, alignItems: 'center', marginTop: 4,
   },
   actionButtonDisabled: { opacity: 0.5 },
-  actionButtonText: { fontSize: 15, fontWeight: '700', color: '#2563EB' },
-  quizButton: { backgroundColor: '#2563EB', borderColor: '#2563EB' },
-  quizButtonText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  actionButtonText: { fontSize: 15, fontWeight: '700', color: colors.header },
+  quizButton: { backgroundColor: colors.primaryButton, borderColor: colors.primaryButton },
+  quizButtonText: { fontSize: 15, fontWeight: '700', color: colors.primaryButtonText },
   imagePreviewCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 16,
     padding: 12,
     alignItems: 'center',
@@ -731,13 +741,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 10,
     borderRadius: 10,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   summaryActionButtonText: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.textSecondary,
   },
 });

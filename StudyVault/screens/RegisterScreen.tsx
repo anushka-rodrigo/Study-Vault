@@ -15,11 +15,17 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
+
 type Props = {
   navigation: any;
 };
 
 export default function RegisterScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
@@ -97,7 +103,7 @@ export default function RegisterScreen({ navigation }: Props) {
           <TextInput
             style={styles.input}
             placeholder="John Doe"
-            placeholderTextColor="#aaa"
+            placeholderTextColor={colors.placeholder}
             autoCapitalize="words"
             value={fullName}
             onChangeText={setFullName}
@@ -108,7 +114,7 @@ export default function RegisterScreen({ navigation }: Props) {
           <TextInput
             style={styles.input}
             placeholder="student@university.edu"
-            placeholderTextColor="#aaa"
+            placeholderTextColor={colors.placeholder}
             keyboardType="email-address"
             autoCapitalize="none"
             value={email}
@@ -120,7 +126,7 @@ export default function RegisterScreen({ navigation }: Props) {
           <TextInput
             style={styles.input}
             placeholder="johndoe"
-            placeholderTextColor="#aaa"
+            placeholderTextColor={colors.placeholder}
             autoCapitalize="none"
             value={username}
             onChangeText={setUsername}
@@ -131,7 +137,7 @@ export default function RegisterScreen({ navigation }: Props) {
           <TextInput
             style={styles.input}
             placeholder="••••••••"
-            placeholderTextColor="#aaa"
+            placeholderTextColor={colors.placeholder}
             secureTextEntry
             value={password}
             onChangeText={setPassword}
@@ -142,7 +148,7 @@ export default function RegisterScreen({ navigation }: Props) {
           <TextInput
             style={styles.input}
             placeholder="••••••••"
-            placeholderTextColor="#aaa"
+            placeholderTextColor={colors.placeholder}
             secureTextEntry
             value={confirmPassword}
             onChangeText={setConfirmPassword}
@@ -156,7 +162,7 @@ export default function RegisterScreen({ navigation }: Props) {
             activeOpacity={0.85}
           >
             {loading ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colors.primaryButtonText} />
             ) : (
               <Text style={styles.createButtonText}>Create Account</Text>
             )}
@@ -175,10 +181,10 @@ export default function RegisterScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: colors.background,
   },
   scroll: {
     flexGrow: 1,
@@ -191,9 +197,9 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 60 : 48,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   backButton: {
     width: 40,
@@ -203,17 +209,17 @@ const styles = StyleSheet.create({
   },
   backArrow: {
     fontSize: 22,
-    color: '#374151',
+    color: colors.text,
     fontWeight: '600',
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     letterSpacing: 0.2,
   },
   form: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     marginTop: 16,
     marginHorizontal: 16,
     borderRadius: 20,
@@ -227,7 +233,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.text,
     marginBottom: 6,
     marginTop: 4,
   },
@@ -235,24 +241,24 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 50,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 15,
-    color: '#111827',
-    backgroundColor: '#FAFAFA',
+    color: colors.text,
+    backgroundColor: colors.inputBackground,
     marginBottom: 16,
   },
   createButton: {
     width: '100%',
     height: 52,
-    backgroundColor: '#2563EB',
+    backgroundColor: colors.primaryButton,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 20,
-    shadowColor: '#2563EB',
+    shadowColor: colors.primaryButton,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -262,7 +268,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   createButtonText: {
-    color: '#fff',
+    color: colors.primaryButtonText,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -274,11 +280,11 @@ const styles = StyleSheet.create({
   },
   loginText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textSecondary,
   },
   loginLink: {
     fontSize: 14,
-    color: '#2563EB',
+    color: colors.header,
     fontWeight: '700',
   },
 });

@@ -16,6 +16,9 @@ import {
 import { addNoteToFolderInDb, removeNoteFromFolderInDb, renameFolderInDb } from '../services/folderService';
 import { Note } from '../services/noteService';
 
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
+
 type Folder = {
   id: string;
   name: string;
@@ -36,6 +39,9 @@ type Props = {
 };
 
 export default function FolderDetailScreen({ navigation, route }: Props) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+
   const { onUpdate, allFolders = [], onNotePinToggle } = route.params;
   const [folder, setFolder] = useState<Folder>(route.params.folder);
   const [addModalVisible, setAddModalVisible] = useState(false);
@@ -191,7 +197,7 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#2563EB" />
+      <StatusBar barStyle="light-content" backgroundColor={colors.header} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -315,6 +321,7 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
               onChangeText={setRenameValue}
               autoFocus
               placeholder="Folder name"
+              placeholderTextColor={colors.placeholder}
             />
             <View style={styles.renameActions}>
               <TouchableOpacity
@@ -339,122 +346,122 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#2563EB' },
+const getStyles = (colors: ThemeColors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.header },
   header: {
-    backgroundColor: '#2563EB', paddingHorizontal: 20, paddingVertical: 16, paddingTop: (StatusBar.currentHeight || 24) + 10,
+    backgroundColor: colors.header, paddingHorizontal: 20, paddingVertical: 16, paddingTop: (StatusBar.currentHeight || 24) + 10,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: colors.headerText, letterSpacing: 0.3 },
   profileButton: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center',
   },
   profileIcon: { fontSize: 20 },
 
-  body: { flex: 1, backgroundColor: '#FFFFFF' },
+  body: { flex: 1, backgroundColor: colors.background },
 
   tabContainer: {
-    flexDirection: 'row', backgroundColor: '#FFFFFF',
+    flexDirection: 'row', backgroundColor: colors.surface,
     marginHorizontal: 16, marginTop: 16, marginBottom: 4,
     borderRadius: 12, padding: 4,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   tab: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  tabActive: { backgroundColor: '#2563EB' },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
-  tabTextActive: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+  tabActive: { backgroundColor: colors.header },
+  tabText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  tabTextActive: { fontSize: 14, fontWeight: '600', color: colors.headerText },
 
   backRow: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4 },
-  backText: { fontSize: 14, color: '#2563EB', fontWeight: '600' },
+  backText: { fontSize: 14, color: colors.header, fontWeight: '600' },
 
   folderHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
   },
   folderTitleRow: { flexDirection: 'row', alignItems: 'center', flexShrink: 1, marginRight: 12 },
-  folderTitle: { fontSize: 20, fontWeight: '800', color: '#111827', flexShrink: 1 },
+  folderTitle: { fontSize: 20, fontWeight: '800', color: colors.text, flexShrink: 1 },
   renameIconBtn: { marginLeft: 8, padding: 2 },
   renameIcon: { fontSize: 16 },
   addNotesBtn: {
-    backgroundColor: '#2563EB', borderRadius: 10,
+    backgroundColor: colors.primaryButton, borderRadius: 10,
     paddingHorizontal: 16, paddingVertical: 8,
   },
-  addNotesBtnText: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
+  addNotesBtnText: { fontSize: 14, fontWeight: '700', color: colors.primaryButtonText },
 
   listContent: { paddingHorizontal: 16, paddingBottom: 40 },
-  separator: { height: 1, backgroundColor: '#E5E7EB', marginLeft: 72 },
+  separator: { height: 1, backgroundColor: colors.border, marginLeft: 72 },
 
   noteRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#F0F4FF', borderRadius: 12,
+    backgroundColor: colors.surface, borderRadius: 12,
     paddingVertical: 12, paddingHorizontal: 12, marginBottom: 10,
   },
   fileIconWrapper: {
-    width: 44, height: 44, borderRadius: 10, backgroundColor: '#DBEAFE',
+    width: 44, height: 44, borderRadius: 10, backgroundColor: colors.background,
     justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  fileIconWrapperImage: { backgroundColor: '#EDE9FE' },
+  fileIconWrapperImage: { backgroundColor: colors.background },
   fileIconImage: { width: 32, height: 32 },
   noteInfo: { flex: 1 },
-  noteTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 2 },
-  noteDate: { fontSize: 12, color: '#6B7280' },
+  noteTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 2 },
+  noteDate: { fontSize: 12, color: colors.textSecondary },
   noteActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pinIcon: { fontSize: 18 },
   deleteIconImage: { width: 26, height: 26 },
 
-  emptyText: { textAlign: 'center', color: '#9CA3AF', fontSize: 14, marginTop: 32, paddingHorizontal: 24 },
+  emptyText: { textAlign: 'center', color: colors.placeholder, fontSize: 14, marginTop: 32, paddingHorizontal: 24 },
 
   // Modal
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.4)',
+    flex: 1, backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, maxHeight: '75%',
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 16, elevation: 10,
   },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#111827', marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 16 },
   modalList: { flexGrow: 0 },
-  modalEmptyText: { textAlign: 'center', color: '#9CA3AF', fontSize: 14, paddingVertical: 20 },
+  modalEmptyText: { textAlign: 'center', color: colors.placeholder, fontSize: 14, paddingVertical: 20 },
   availableNoteRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#F9FAFB', borderRadius: 12,
+    backgroundColor: colors.background, borderRadius: 12,
     paddingVertical: 12, paddingHorizontal: 12,
   },
   fileIconWrapperSmall: {
-    width: 40, height: 40, borderRadius: 10, backgroundColor: '#EEF2FF',
+    width: 40, height: 40, borderRadius: 10, backgroundColor: colors.background,
     justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
   fileIconImageSmall: { width: 26, height: 26 },
   modalCloseBtn: {
-    marginTop: 16, backgroundColor: '#E5E7EB', borderRadius: 12,
+    marginTop: 16, backgroundColor: colors.border, borderRadius: 12,
     paddingVertical: 14, alignItems: 'center',
   },
-  modalCloseBtnText: { fontSize: 15, fontWeight: '700', color: '#374151' },
+  modalCloseBtnText: { fontSize: 15, fontWeight: '700', color: colors.text },
 
   // Rename modal
   renameOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.4)',
+    flex: 1, backgroundColor: colors.overlay,
     justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32,
   },
   renameCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 16, padding: 24, width: '100%',
+    backgroundColor: colors.surface, borderRadius: 16, padding: 24, width: '100%',
   },
-  renameTitle: { fontSize: 18, fontWeight: '800', color: '#111827', marginBottom: 4 },
-  renameSubtitle: { fontSize: 13, color: '#6B7280', marginBottom: 18 },
+  renameTitle: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 4 },
+  renameSubtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: 18 },
   renameInput: {
-    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: '#111827', marginBottom: 20,
+    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, color: colors.text, marginBottom: 20,
   },
   renameActions: { flexDirection: 'row', gap: 12 },
   renameCancelBtn: {
-    flex: 1, padding: 12, borderRadius: 10, backgroundColor: '#E5E7EB', alignItems: 'center',
+    flex: 1, padding: 12, borderRadius: 10, backgroundColor: colors.border, alignItems: 'center',
   },
-  renameCancelText: { fontSize: 15, fontWeight: '700', color: '#374151' },
+  renameCancelText: { fontSize: 15, fontWeight: '700', color: colors.text },
   renameConfirmBtn: {
-    flex: 1, padding: 12, borderRadius: 10, backgroundColor: '#2563EB', alignItems: 'center',
+    flex: 1, padding: 12, borderRadius: 10, backgroundColor: colors.primaryButton, alignItems: 'center',
   },
-  renameConfirmText: { fontSize: 15, fontWeight: '700', color: '#FFFFFF' },
+  renameConfirmText: { fontSize: 15, fontWeight: '700', color: colors.primaryButtonText },
 });

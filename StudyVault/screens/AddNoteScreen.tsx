@@ -21,6 +21,9 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../config/firebase';
 
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
+
 type Props = {
   navigation: any;
 };
@@ -33,6 +36,9 @@ type PendingUpload = {
 };
 
 export default function AddNoteScreen({ navigation }: Props) {
+  const { colors, mode } = useTheme();
+  const styles = getStyles(colors);
+
   const [pickingPdf, setPickingPdf] = useState(false);
   const [pickingImage, setPickingImage] = useState(false);
 
@@ -217,7 +223,7 @@ export default function AddNoteScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -245,7 +251,7 @@ export default function AddNoteScreen({ navigation }: Props) {
         >
           <View style={[styles.iconCircle, styles.iconCirclePdf]}>
             {pickingPdf ? (
-              <ActivityIndicator color="#FFFFFF" size="large" />
+              <ActivityIndicator color={colors.primaryButtonText} size="large" />
             ) : (
               <Image source={require('../assets/icons/pdf-icon.jpg')} style={styles.cardIconImage} resizeMode="contain" />
             )}
@@ -263,7 +269,7 @@ export default function AddNoteScreen({ navigation }: Props) {
         >
           <View style={[styles.iconCircle, styles.iconCircleImage]}>
             {pickingImage ? (
-              <ActivityIndicator color="#FFFFFF" size="large" />
+              <ActivityIndicator color={colors.primaryButtonText} size="large" />
             ) : (
               <Image source={require('../assets/icons/image-icon.jpg')} style={styles.cardIconImage} resizeMode="contain" />
             )}
@@ -306,7 +312,7 @@ export default function AddNoteScreen({ navigation }: Props) {
               value={renameValue}
               onChangeText={setRenameValue}
               placeholder="Enter note name"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.placeholder}
               autoFocus
               selectTextOnFocus
               maxLength={80}
@@ -330,7 +336,7 @@ export default function AddNoteScreen({ navigation }: Props) {
                 disabled={saving}
               >
                 {saving ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
+                  <ActivityIndicator color={colors.primaryButtonText} size="small" />
                 ) : (
                   <Text style={styles.renameConfirmText}>Upload</Text>
                 )}
@@ -343,10 +349,10 @@ export default function AddNoteScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
 
   // Header
@@ -357,9 +363,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     paddingTop: (StatusBar.currentHeight || 24) + 10,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colors.border,
   },
   backBtn: {
     width: 36,
@@ -369,20 +375,20 @@ const styles = StyleSheet.create({
   },
   backArrow: {
     fontSize: 22,
-    color: '#374151',
+    color: colors.text,
     fontWeight: '600',
   },
   headerTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     letterSpacing: 0.2,
   },
 
   // Body — vertically centred cards
   body: {
     flex: 1,
-    backgroundColor: '#F8F9FB',
+    backgroundColor: colors.background,
     justifyContent: 'center',
     paddingHorizontal: 24,
     gap: 20,
@@ -396,7 +402,7 @@ const styles = StyleSheet.create({
     paddingVertical: 32,
     paddingHorizontal: 20,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     gap: 10,
   },
   uploadCardPdf: {
@@ -418,7 +424,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   iconCirclePdf: {
-    backgroundColor: '#2563EB',
+    backgroundColor: colors.header,
   },
   iconCircleImage: {
     backgroundColor: '#7C3AED',
@@ -431,12 +437,12 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     textAlign: 'center',
   },
   cardSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: colors.textSecondary,
     textAlign: 'center',
     fontWeight: '400',
   },
@@ -444,13 +450,13 @@ const styles = StyleSheet.create({
   // ── Rename modal styles ──
   renameOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 28,
   },
   renameCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 24,
     width: '100%',
@@ -469,18 +475,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
-  renameBadgePdf: { backgroundColor: '#DBEAFE' },
-  renameBadgeImage: { backgroundColor: '#EDE9FE' },
+  renameBadgePdf: { backgroundColor: colors.background },
+  renameBadgeImage: { backgroundColor: colors.background },
   renameBadgeEmoji: { fontSize: 28 },
   renameTitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#111827',
+    color: colors.text,
     marginBottom: 6,
   },
   renameSubtitle: {
     fontSize: 13,
-    color: '#6B7280',
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 18,
@@ -488,13 +494,13 @@ const styles = StyleSheet.create({
   renameInput: {
     width: '100%',
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 11,
     fontSize: 15,
-    color: '#111827',
-    backgroundColor: '#F9FAFB',
+    color: colors.text,
+    backgroundColor: colors.inputBackground,
     marginBottom: 22,
   },
   renameActions: {
@@ -506,13 +512,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 13,
     borderRadius: 12,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.border,
     alignItems: 'center',
   },
   renameCancelText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#374151',
+    color: colors.text,
   },
   renameConfirmBtn: {
     flex: 1,
@@ -520,11 +526,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
   },
-  renameConfirmBtnPdf: { backgroundColor: '#2563EB' },
+  renameConfirmBtnPdf: { backgroundColor: colors.primaryButton },
   renameConfirmBtnImage: { backgroundColor: '#7C3AED' },
   renameConfirmText: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.primaryButtonText,
   },
 });

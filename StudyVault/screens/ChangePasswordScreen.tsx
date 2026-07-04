@@ -14,11 +14,17 @@ import {
 import { auth } from '../config/firebase';
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
+
 type Props = {
   navigation: any;
 };
 
 export default function ChangePasswordScreen({ navigation }: Props) {
+  const { colors, mode } = useTheme();
+  const styles = getStyles(colors);
+
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -58,7 +64,7 @@ export default function ChangePasswordScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.surface} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -88,7 +94,7 @@ export default function ChangePasswordScreen({ navigation }: Props) {
             onChangeText={setCurrentPassword}
             secureTextEntry
             placeholder="••••••••"
-            placeholderTextColor="#D1D5DB"
+            placeholderTextColor={colors.placeholder}
             returnKeyType="next"
           />
         </View>
@@ -102,7 +108,7 @@ export default function ChangePasswordScreen({ navigation }: Props) {
             onChangeText={setNewPassword}
             secureTextEntry
             placeholder="••••••••"
-            placeholderTextColor="#D1D5DB"
+            placeholderTextColor={colors.placeholder}
             returnKeyType="next"
           />
         </View>
@@ -116,7 +122,7 @@ export default function ChangePasswordScreen({ navigation }: Props) {
             onChangeText={setConfirmPassword}
             secureTextEntry
             placeholder="••••••••"
-            placeholderTextColor="#D1D5DB"
+            placeholderTextColor={colors.placeholder}
             returnKeyType="done"
             onSubmitEditing={handleSavePassword}
           />
@@ -136,20 +142,20 @@ export default function ChangePasswordScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F8F9FB' },
+const getStyles = (colors: ThemeColors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.background },
 
   // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
     paddingTop: (StatusBar.currentHeight || 24) + 10,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   headerSideBtn: { width: 44, height: 36, justifyContent: 'center' },
-  backArrow: { fontSize: 22, color: '#374151', fontWeight: '600' },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  backArrow: { fontSize: 22, color: colors.text, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
 
   // Scroll
   scroll: { flex: 1 },
@@ -157,26 +163,26 @@ const styles = StyleSheet.create({
 
   // Input fields
   inputLabel: {
-    fontSize: 14, fontWeight: '600', color: '#374151',
+    fontSize: 14, fontWeight: '600', color: colors.text,
     marginBottom: 6, marginTop: 8,
   },
   inputCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 14,
+    backgroundColor: colors.surface, borderRadius: 14,
     paddingHorizontal: 16, paddingVertical: 4,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
     marginBottom: 4,
   },
   input: {
-    fontSize: 15, color: '#111827',
+    fontSize: 15, color: colors.text,
     paddingVertical: 12,
   },
 
   // Save button
   saveBtn: {
-    backgroundColor: '#2563EB', borderRadius: 14,
+    backgroundColor: colors.primaryButton, borderRadius: 14,
     paddingVertical: 16, alignItems: 'center',
     marginTop: 20,
   },
-  saveBtnText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  saveBtnText: { fontSize: 16, fontWeight: '700', color: colors.primaryButtonText },
 });

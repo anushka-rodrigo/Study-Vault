@@ -9,7 +9,7 @@ import {
   StatusBar,
   Alert,
   Image,
-  ActivityIndicator, // Added ActivityIndicator to show a loading spinner
+  ActivityIndicator,
   TextInput,
   Modal,
 } from 'react-native';
@@ -34,11 +34,21 @@ import {
   searchFoldersByName,
 } from '../services/folderService';
 
+// STEP 1: import the theme hook and color type.
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
+
 type Props = {
   navigation: any;
 };
 
 export default function DbHomeScreen({ navigation }: Props) {
+  // STEP 2: pull the active palette + mode out of context.
+  const { colors, mode } = useTheme();
+  // STEP 3: styles become a function call using the active colors,
+  // instead of a static StyleSheet.create() sitting outside the component.
+  const styles = getStyles(colors);
+
   const [activeTab, setActiveTab] = useState<'list' | 'group'>('list');
   const [notes, setNotes] = useState<Note[]>([]);
   const [loadingNotes, setLoadingNotes] = useState<boolean>(true);
@@ -187,8 +197,6 @@ export default function DbHomeScreen({ navigation }: Props) {
   // Filter folders by name using the search service function.
   const displayedFolders = searchFoldersByName(folders, folderSearchQuery);
 
-
-
   const renderNote = ({ item }: { item: Note }) => (
     <TouchableOpacity
       style={styles.noteRow}
@@ -244,46 +252,43 @@ export default function DbHomeScreen({ navigation }: Props) {
   };
 
   const handleCreateFolder = async () => {
-  const trimmedName = folderName.trim();
-  if (!trimmedName) return;
-  const currentUser = auth.currentUser;
-  if (!currentUser) return;
+    const trimmedName = folderName.trim();
+    if (!trimmedName) return;
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
 
-  const isDuplicate = folders.some(
-    f => f.name.toLowerCase() === trimmedName.toLowerCase()
-  );
-  if (isDuplicate) {
-    Alert.alert('Duplicate Folder', 'A folder with this name already exists. Please choose a different name.');
-    return;
-  }
+    const isDuplicate = folders.some(
+      f => f.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+    if (isDuplicate) {
+      Alert.alert('Duplicate Folder', 'A folder with this name already exists. Please choose a different name.');
+      return;
+    }
 
-  try {
-    const newFolder = await createFolder(currentUser.uid, trimmedName);
-    setFolders(prev => [...prev, newFolder]);
-    setFolderModalVisible(false);
-  } catch (error) {
-    Alert.alert('Error', 'Failed to create folder.');
-  }
-};
+    try {
+      const newFolder = await createFolder(currentUser.uid, trimmedName);
+      setFolders(prev => [...prev, newFolder]);
+      setFolderModalVisible(false);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to create folder.');
+    }
+  };
 
   // Added real Group View containing a list of folders fetched from Firestore.
   const renderGroupView = () => (
-    <View style={{ flex: 1, paddingHorizontal: 16, paddingTop: 8 }}>
+    <View style={styles.groupViewContainer}>
       <TouchableOpacity
-        style={{
-          backgroundColor: '#2563EB', padding: 12, borderRadius: 10,
-          alignItems: 'center', marginBottom: 16
-        }}
+        style={styles.createFolderBtn}
         onPress={handleAddFolder}
       >
-        <Text style={{ color: '#FFFFFF', fontWeight: '700' }}>+ Create Folder</Text>
+        <Text style={styles.createFolderBtnText}>+ Create Folder</Text>
       </TouchableOpacity>
       {folders.length > 0 && (
         <View style={styles.groupSearchBoxWrapper}>
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             placeholder="Search folders by name"
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={colors.placeholder}
             value={folderSearchQuery}
             onChangeText={setFolderSearchQuery}
             style={styles.searchInput}
@@ -298,7 +303,7 @@ export default function DbHomeScreen({ navigation }: Props) {
       )}
 
       {loadingFolders ? (
-        <ActivityIndicator size="small" color="#2563EB" />
+        <ActivityIndicator size="small" color={colors.header} />
       ) : folders.length === 0 ? (
         <View style={styles.groupContainer}>
           <Text style={styles.groupEmptyText}>No folders created yet.</Text>
@@ -313,11 +318,7 @@ export default function DbHomeScreen({ navigation }: Props) {
           keyExtractor={item => item.id}
           renderItem={({ item }) => (
             <TouchableOpacity
-              style={{
-                backgroundColor: '#FFFFFF', padding: 16, borderRadius: 12,
-                flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                marginBottom: 8, elevation: 1
-              }}
+              style={styles.folderRow}
               onPress={() => navigation.navigate('FolderDetail', {
                 folder: item,
                 allNotes: notes,
@@ -328,14 +329,14 @@ export default function DbHomeScreen({ navigation }: Props) {
                 onNotePinToggle: handlePinToggle,
               })}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <Text style={{ fontSize: 24 }}>📁</Text>
+              <View style={styles.folderRowLeft}>
+                <Text style={styles.folderEmoji}>📁</Text>
                 <View>
-                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#111827' }}>{item.name}</Text>
-                  <Text style={{ fontSize: 12, color: '#6B7280' }}>{item.noteIds.length} notes</Text>
+                  <Text style={styles.folderName}>{item.name}</Text>
+                  <Text style={styles.folderMeta}>{item.noteIds.length} notes</Text>
                 </View>
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <View style={styles.folderRowRight}>
                 <TouchableOpacity
                   onPress={() => handleDeleteFolder(item.id, item.name)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -346,7 +347,7 @@ export default function DbHomeScreen({ navigation }: Props) {
                     resizeMode="contain"
                   />
                 </TouchableOpacity>
-                <Text style={{ color: '#6B7280' }}>→</Text>
+                <Text style={styles.folderChevron}>→</Text>
               </View>
             </TouchableOpacity>
           )}
@@ -357,7 +358,9 @@ export default function DbHomeScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor="#2563EB" />
+      {/* Header background flips blue->red between modes, so light-content
+          text stays readable either way. */}
+      <StatusBar barStyle="light-content" backgroundColor={colors.header} />
 
       <View style={styles.header}>
         <Text style={styles.headerTitle}>StudyVault</Text>
@@ -389,8 +392,8 @@ export default function DbHomeScreen({ navigation }: Props) {
         </View>
 
         {loadingNotes ? (
-          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-            <ActivityIndicator size="large" color="#2563EB" />
+          <View style={styles.centerFill}>
+            <ActivityIndicator size="large" color={colors.header} />
           </View>
         ) : activeTab === 'list' ? (
           <View style={{ flex: 1 }}>
@@ -399,7 +402,7 @@ export default function DbHomeScreen({ navigation }: Props) {
                 <Text style={styles.searchIcon}>🔍</Text>
                 <TextInput
                   placeholder="Search files by name"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.placeholder}
                   value={noteSearchQuery}
                   onChangeText={setNoteSearchQuery}
                   style={styles.searchInput}
@@ -446,40 +449,32 @@ export default function DbHomeScreen({ navigation }: Props) {
         animationType="fade"
         onRequestClose={() => setFolderModalVisible(false)}
       >
-        <View style={{
-          flex: 1, backgroundColor: 'rgba(0,0,0,0.4)',
-          justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32
-        }}>
-          <View style={{
-            backgroundColor: '#FFFFFF', borderRadius: 16,
-            padding: 24, width: '100%',
-          }}>
-            <Text style={{ fontSize: 18, fontWeight: '800', color: '#111827', marginBottom: 16 }}>
+        {/* STEP 4: inline JSX styles need the same hex -> colors.x swap. */}
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalCardTitle}>
               Create Folder
             </Text>
             <TextInput
               placeholder="Enter folder name"
+              placeholderTextColor={colors.placeholder}
               value={folderName}
               onChangeText={setFolderName}
               autoFocus
-              style={{
-                borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10,
-                paddingHorizontal: 14, paddingVertical: 10,
-                fontSize: 15, color: '#111827', marginBottom: 20,
-              }}
+              style={styles.modalInput}
             />
-            <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View style={styles.modalActions}>
               <TouchableOpacity
-                style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: '#E5E7EB', alignItems: 'center' }}
+                style={styles.modalCancelBtn}
                 onPress={() => setFolderModalVisible(false)}
               >
-                <Text style={{ fontWeight: '700', color: '#374151' }}>Cancel</Text>
+                <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={{ flex: 1, padding: 12, borderRadius: 10, backgroundColor: '#2563EB', alignItems: 'center' }}
+                style={styles.modalCreateBtn}
                 onPress={handleCreateFolder}
               >
-                <Text style={{ fontWeight: '700', color: '#FFFFFF' }}>Create</Text>
+                <Text style={styles.modalCreateText}>Create</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -490,24 +485,25 @@ export default function DbHomeScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#2563EB' },
+const getStyles = (colors: ThemeColors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.header },
   header: {
-    backgroundColor: '#2563EB',
+    backgroundColor: colors.header,
     paddingHorizontal: 20, paddingVertical: 16,
     paddingTop: (StatusBar.currentHeight || 24) + 10,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#FFFFFF', letterSpacing: 0.3 },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: colors.headerText, letterSpacing: 0.3 },
   profileButton: {
     width: 40, height: 40, borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center', alignItems: 'center',
   },
   profileIcon: { fontSize: 20 },
-  body: { flex: 1, backgroundColor: '#F1F5FB' },
+  body: { flex: 1, backgroundColor: colors.background },
+  centerFill: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   tabContainer: {
-    flexDirection: 'row', backgroundColor: '#FFFFFF',
+    flexDirection: 'row', backgroundColor: colors.surface,
     marginHorizontal: 16, marginTop: 16, marginBottom: 8,
     borderRadius: 12, padding: 4,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
@@ -515,56 +511,98 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   tabActive: {
-    backgroundColor: '#2563EB',
-    shadowColor: '#2563EB', shadowOffset: { width: 0, height: 2 },
+    backgroundColor: colors.header,
+    shadowColor: colors.header, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3, shadowRadius: 4, elevation: 3,
   },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
-  tabTextActive: { color: '#FFFFFF' },
+  tabText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  tabTextActive: { color: colors.headerText },
   listContent: { paddingHorizontal: 16, paddingBottom: 100, paddingTop: 8 },
-  separator: { height: 1, backgroundColor: '#E5E7EB', marginLeft: 72 },
+  separator: { height: 1, backgroundColor: colors.border, marginLeft: 72 },
   noteRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF', paddingVertical: 14, paddingHorizontal: 12,
+    backgroundColor: colors.surface, paddingVertical: 14, paddingHorizontal: 12,
   },
   fileIconWrapper: {
     width: 44, height: 44, borderRadius: 10,
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.background,
     justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  fileIconWrapperImage: { backgroundColor: '#FDF4FF' },
+  fileIconWrapperImage: { backgroundColor: colors.background },
   fileIconImage: { width: 26, height: 26 },
   noteInfo: { flex: 1 },
-  noteTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 3 },
-  noteDate: { fontSize: 12, color: '#6B7280', fontWeight: '400' },
+  noteTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 3 },
+  noteDate: { fontSize: 12, color: colors.textSecondary, fontWeight: '400' },
   noteActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pinIcon: { fontSize: 18 },
   deleteIconImage: { width: 20, height: 20 },
   searchBoxWrapper: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF', borderRadius: 10,
+    backgroundColor: colors.inputBackground, borderRadius: 10,
     paddingHorizontal: 12, marginHorizontal: 16, marginBottom: 12,
-    height: 42, borderWidth: 1, borderColor: '#E5E7EB',
+    height: 42, borderWidth: 1, borderColor: colors.border,
   },
   groupSearchBoxWrapper: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFFFFF', borderRadius: 10,
+    backgroundColor: colors.inputBackground, borderRadius: 10,
     paddingHorizontal: 12, marginBottom: 12,
-    height: 42, borderWidth: 1, borderColor: '#E5E7EB',
+    height: 42, borderWidth: 1, borderColor: colors.border,
   },
   searchIcon: { fontSize: 15, marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: '#111827', padding: 0 },
-  searchClearIcon: { fontSize: 14, color: '#9CA3AF', paddingHorizontal: 4 },
+  searchInput: { flex: 1, fontSize: 14, color: colors.text, padding: 0 },
+  searchClearIcon: { fontSize: 14, color: colors.placeholder, paddingHorizontal: 4 },
   groupContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  groupEmptyText: { fontSize: 16, color: '#9CA3AF', fontWeight: '500' },
+  groupEmptyText: { fontSize: 16, color: colors.placeholder, fontWeight: '500' },
   fab: {
     position: 'absolute', bottom: 55, right: 24,
-    width: 56, height: 56, borderRadius: 28, backgroundColor: '#2563EB',
+    width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primaryButton,
     justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#2563EB', shadowOffset: { width: 0, height: 4 },
+    shadowColor: colors.primaryButton, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
   },
-  fabIcon: { fontSize: 28, color: '#FFFFFF', fontWeight: '400', lineHeight: 32 },
+  fabIcon: { fontSize: 28, color: colors.primaryButtonText, fontWeight: '400', lineHeight: 32 },
 
+  // Group View (previously inline styles in the JSX)
+  groupViewContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 8 },
+  createFolderBtn: {
+    backgroundColor: colors.primaryButton, padding: 12, borderRadius: 10,
+    alignItems: 'center', marginBottom: 16,
+  },
+  createFolderBtnText: { color: colors.primaryButtonText, fontWeight: '700' },
+  folderRow: {
+    backgroundColor: colors.surface, padding: 16, borderRadius: 12,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginBottom: 8, elevation: 1,
+  },
+  folderRowLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  folderRowRight: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  folderEmoji: { fontSize: 24 },
+  folderName: { fontSize: 16, fontWeight: '700', color: colors.text },
+  folderMeta: { fontSize: 12, color: colors.textSecondary },
+  folderChevron: { color: colors.textSecondary },
 
+  // Create Folder modal (previously inline styles in the JSX)
+  modalOverlay: {
+    flex: 1, backgroundColor: colors.overlay,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32,
+  },
+  modalCard: {
+    backgroundColor: colors.surface, borderRadius: 16,
+    padding: 24, width: '100%',
+  },
+  modalCardTitle: { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 16 },
+  modalInput: {
+    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 10,
+    fontSize: 15, color: colors.text, marginBottom: 20,
+  },
+  modalActions: { flexDirection: 'row', gap: 12 },
+  modalCancelBtn: {
+    flex: 1, padding: 12, borderRadius: 10, backgroundColor: colors.border, alignItems: 'center',
+  },
+  modalCancelText: { fontWeight: '700', color: colors.text },
+  modalCreateBtn: {
+    flex: 1, padding: 12, borderRadius: 10, backgroundColor: colors.primaryButton, alignItems: 'center',
+  },
+  modalCreateText: { fontWeight: '700', color: colors.primaryButtonText },
 });
