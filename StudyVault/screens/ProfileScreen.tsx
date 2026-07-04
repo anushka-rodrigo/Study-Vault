@@ -9,17 +9,23 @@ import {
   TextInput,
   Alert,
   ScrollView,
+  Switch,
 } from 'react-native';
 
 import { auth, db } from '../config/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
 
 type Props = {
   navigation: any;
 };
 
 export default function ProfileScreen({ navigation }: Props) {
+  const { colors, mode, toggleTheme } = useTheme();
+  const styles = getStyles(colors);
+
   const [isEditing, setIsEditing] = useState(false);
 
   const [fullName, setFullName] = useState('');
@@ -103,7 +109,10 @@ export default function ProfileScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar
+        barStyle={mode === 'dark' ? 'light-content' : 'dark-content'}
+        backgroundColor={colors.surface}
+      />
 
       {/* Header */}
       <View style={styles.header}>
@@ -171,6 +180,7 @@ export default function ProfileScreen({ navigation }: Props) {
                     onChangeText={setFullName}
                     autoCapitalize="words"
                     returnKeyType="next"
+                    placeholderTextColor={colors.placeholder}
                   />
                 ) : (
                   <Text style={styles.fieldValue}>{fullName}</Text>
@@ -193,6 +203,7 @@ export default function ProfileScreen({ navigation }: Props) {
                     onChangeText={setUsername}
                     autoCapitalize="none"
                     returnKeyType="next"
+                    placeholderTextColor={colors.placeholder}
                   />
                 ) : (
                   <Text style={styles.fieldValue}>{username}</Text>
@@ -216,6 +227,7 @@ export default function ProfileScreen({ navigation }: Props) {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     returnKeyType="done"
+                    placeholderTextColor={colors.placeholder}
                   />
                 ) : (
                   <Text style={styles.fieldValue}>{email}</Text>
@@ -239,6 +251,22 @@ export default function ProfileScreen({ navigation }: Props) {
             </View>
           </TouchableOpacity>
 
+          {/* Dark Mode toggle */}
+          <View style={styles.fieldCard}>
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldIcon}>🌙</Text>
+              <View style={styles.fieldContent}>
+                <Text style={styles.fieldValueBold}>Dark Mode</Text>
+              </View>
+              <Switch
+                value={mode === 'dark'}
+                onValueChange={toggleTheme}
+                trackColor={{ false: '#D1D5DB', true: colors.header }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+          </View>
+
         </View>
 
         {/* Logout button */}
@@ -251,22 +279,25 @@ export default function ProfileScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F8F9FB' },
+// Styles are now a function of the active theme colors. Called once per
+// render inside the component as `const styles = getStyles(colors);` so
+// switching dark mode re-renders every screen with the new palette.
+const getStyles = (colors: ThemeColors) => StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: colors.background },
 
   // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
     paddingTop: (StatusBar.currentHeight || 24) + 10,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   headerSideBtn: { width: 44, height: 36, justifyContent: 'center' },
-  backArrow: { fontSize: 22, color: '#374151', fontWeight: '600' },
-  headerTitle: { fontSize: 17, fontWeight: '700', color: '#111827' },
+  backArrow: { fontSize: 22, color: colors.text, fontWeight: '600' },
+  headerTitle: { fontSize: 17, fontWeight: '700', color: colors.text },
   editIcon: { fontSize: 20, textAlign: 'right' },
-  saveText: { fontSize: 15, fontWeight: '700', color: '#2563EB', textAlign: 'right' },
+  saveText: { fontSize: 15, fontWeight: '700', color: colors.header, textAlign: 'right' },
 
   // Scroll
   scroll: { flex: 1 },
@@ -275,24 +306,24 @@ const styles = StyleSheet.create({
   // Avatar section
   avatarSection: { alignItems: 'center', paddingTop: 32, paddingBottom: 24 },
   avatarCircle: {
-    width: 90, height: 90, borderRadius: 45, backgroundColor: '#2563EB',
+    width: 90, height: 90, borderRadius: 45, backgroundColor: colors.header,
     justifyContent: 'center', alignItems: 'center', marginBottom: 14,
   },
   avatarIcon: { fontSize: 44 },
   cameraBtn: {
     position: 'absolute', bottom: 0, right: 0,
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: '#E5E7EB',
+    backgroundColor: colors.surface, justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: colors.border,
   },
   cameraIcon: { fontSize: 14 },
-  avatarName: { fontSize: 20, fontWeight: '800', color: '#111827', marginBottom: 4 },
-  avatarEmail: { fontSize: 13, color: '#6B7280' },
+  avatarName: { fontSize: 20, fontWeight: '800', color: colors.text, marginBottom: 4 },
+  avatarEmail: { fontSize: 13, color: colors.textSecondary },
 
   // Fields
   fieldsContainer: { paddingHorizontal: 16, gap: 12 },
   fieldCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 14,
+    backgroundColor: colors.surface, borderRadius: 14,
     paddingHorizontal: 16, paddingVertical: 14,
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
@@ -300,22 +331,22 @@ const styles = StyleSheet.create({
   fieldRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   fieldIcon: { fontSize: 20, width: 24, textAlign: 'center' },
   fieldContent: { flex: 1 },
-  fieldLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '500', marginBottom: 2 },
-  fieldValue: { fontSize: 15, fontWeight: '600', color: '#111827' },
-  fieldValueBold: { fontSize: 15, fontWeight: '600', color: '#111827' },
+  fieldLabel: { fontSize: 11, color: colors.textSecondary, fontWeight: '500', marginBottom: 2 },
+  fieldValue: { fontSize: 15, fontWeight: '600', color: colors.text },
+  fieldValueBold: { fontSize: 15, fontWeight: '600', color: colors.text },
   fieldInput: {
-    fontSize: 15, fontWeight: '600', color: '#111827',
+    fontSize: 15, fontWeight: '600', color: colors.text,
     padding: 0, margin: 0,
   },
-  fieldUnderline: { height: 1, backgroundColor: '#E5E7EB', marginTop: 8 },
+  fieldUnderline: { height: 1, backgroundColor: colors.border, marginTop: 8 },
 
   // Logout
   logoutBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#2563EB', borderRadius: 14,
+    backgroundColor: colors.primaryButton, borderRadius: 14,
     marginHorizontal: 16, marginTop: 28,
     paddingVertical: 16, gap: 10,
   },
-  logoutIcon: { fontSize: 18, color: '#FFFFFF', fontWeight: '700' },
-  logoutText: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+  logoutIcon: { fontSize: 18, color: colors.primaryButtonText, fontWeight: '700' },
+  logoutText: { fontSize: 16, fontWeight: '700', color: colors.primaryButtonText },
 });
