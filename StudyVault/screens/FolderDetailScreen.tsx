@@ -14,16 +14,7 @@ import {
 } from 'react-native';
 
 import { addNoteToFolderInDb, removeNoteFromFolderInDb, renameFolderInDb } from '../services/folderService';
-
-type Note = {
-  id: string;
-  title: string;
-  date: string;
-  type: 'document' | 'image';
-  pinned: boolean;
-  summarized: boolean;
-  summary?: string;
-};
+import { Note } from '../services/noteService';
 
 type Folder = {
   id: string;
@@ -39,14 +30,19 @@ type Props = {
       allNotes: Note[];
       allFolders?: Folder[];
       onUpdate: (updated: Folder) => void;
+      onNotePinToggle?: (noteId: string, pinned: boolean) => void;
     };
   };
 };
 
 export default function FolderDetailScreen({ navigation, route }: Props) {
-  const { allNotes, onUpdate, allFolders = [] } = route.params;
+  const { onUpdate, allFolders = [], onNotePinToggle } = route.params;
   const [folder, setFolder] = useState<Folder>(route.params.folder);
   const [addModalVisible, setAddModalVisible] = useState(false);
+
+  // Local copy of notes so pin-status changes made from NoteDetailScreen
+  // reflect immediately here without needing a full refetch.
+  const [allNotes, setAllNotes] = useState<Note[]>(route.params.allNotes);
 
   // Rename state
   const [renameModalVisible, setRenameModalVisible] = useState(false);
@@ -60,6 +56,15 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
   const updateFolder = (updated: Folder) => {
     setFolder(updated);
     onUpdate(updated);
+  };
+
+  // Updates the pinned flag locally and forwards the change up to HomeScreen
+  // (if a callback was provided) so List View stays in sync too.
+  const handlePinToggle = (noteId: string, pinned: boolean) => {
+    setAllNotes(prev => prev.map(n => (n.id === noteId ? { ...n, pinned } : n)));
+    if (onNotePinToggle) {
+      onNotePinToggle(noteId, pinned);
+    }
   };
 
   // Opens the rename modal pre-filled with the current folder name.
@@ -131,7 +136,16 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
   };
 
   const renderFolderNote = ({ item }: { item: Note }) => (
-    <View style={styles.noteRow}>
+    <TouchableOpacity
+      style={styles.noteRow}
+      activeOpacity={0.7}
+      onPress={() =>
+        navigation.navigate('NoteDetail', {
+          note: item,
+          onPinToggle: (pinned: boolean) => handlePinToggle(item.id, pinned),
+        })
+      }
+    >
       <View style={[styles.fileIconWrapper, item.type === 'image' && styles.fileIconWrapperImage]}>
         {item.type === 'document' ? (
           <Image source={require('../assets/icons/pdf-icon.jpg')} style={styles.fileIconImage} resizeMode="contain" />
@@ -152,7 +166,7 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
           <Image source={require('../assets/icons/delete-icon.png')} style={styles.deleteIconImage} resizeMode="contain" />
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderAvailableNote = ({ item }: { item: Note }) => (

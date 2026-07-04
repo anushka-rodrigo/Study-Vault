@@ -324,7 +324,8 @@ export default function DbHomeScreen({ navigation }: Props) {
                 allFolders: folders,
                 onUpdate: (updatedFolder: Folder) => {
                   setFolders(prev => prev.map(f => f.id === updatedFolder.id ? updatedFolder : f));
-                }
+                },
+                onNotePinToggle: handlePinToggle,
               })}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
