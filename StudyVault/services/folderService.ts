@@ -75,11 +75,24 @@ export const deleteFolderFromDb = async (folderId: string): Promise<void> => {
 };
 
 // Client-side search: filters an already-fetched folder list by folder name.
-// Case-insensitive substring match. Firestore is only queried by userId, so
-// filtering happens locally against the folders already held in state.
+// Case-insensitive. Results are ranked so names that START WITH the query
+// appear first, followed by names that merely CONTAIN the query elsewhere.
 export const searchFoldersByName = (folders: Folder[], searchQuery: string): Folder[] => {
   const trimmedQuery = searchQuery.trim().toLowerCase();
   if (!trimmedQuery) return folders;
-  return folders.filter(folder => folder.name.toLowerCase().includes(trimmedQuery));
+
+  const startsWith: Folder[] = [];
+  const contains: Folder[] = [];
+
+  for (const folder of folders) {
+    const name = folder.name?.toLowerCase() || '';
+    if (name.startsWith(trimmedQuery)) {
+      startsWith.push(folder);
+    } else if (name.includes(trimmedQuery)) {
+      contains.push(folder);
+    }
+  }
+  
+  return [...startsWith, ...contains];
 };
 

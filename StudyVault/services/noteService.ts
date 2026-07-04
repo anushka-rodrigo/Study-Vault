@@ -201,13 +201,29 @@ export const renameNoteInDb = async (noteId: string, newTitle: string): Promise<
 };
 
 // Client-side search: filters an already-fetched note list by title.
-// Case-insensitive substring match. Firestore is only queried by userId, so
-// filtering happens locally against the notes already held in state.
+// Case-insensitive. Results are ranked so titles that START WITH the query
+// appear first, followed by titles that merely CONTAIN the query elsewhere —
+// this keeps "visual" and "professional" from outranking a title like
+// "AL_report.pdf" when searching "AL".
 export const searchNotesByTitle = (notes: Note[], searchQuery: string): Note[] => {
   const trimmedQuery = searchQuery.trim().toLowerCase();
   if (!trimmedQuery) return notes;
-  return notes.filter(note => note.title?.toLowerCase().includes(trimmedQuery));
+ 
+  const startsWith: Note[] = [];
+  const contains: Note[] = [];
+ 
+  for (const note of notes) {
+    const title = note.title?.toLowerCase() || '';
+    if (title.startsWith(trimmedQuery)) {
+      startsWith.push(note);
+    } else if (title.includes(trimmedQuery)) {
+      contains.push(note);
+    }
+  }
+ 
+  return [...startsWith, ...contains];
 };
+
 
 export const isNoteTitleTaken = async (
   userId: string,
