@@ -431,7 +431,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.headerIconBtn}
           >
-            <Text style={styles.headerIconText}>⎋</Text>
+            <Text style={styles.headerIconText}>📤</Text>
           </TouchableOpacity>
 
           {/* Download */}
@@ -440,7 +440,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.headerIconBtn}
           >
-            <Text style={styles.headerIconText}>⬇</Text>
+            <Text style={styles.headerIconText}>⤓ </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -465,19 +465,11 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
         {/* Original Note card */}
         <View style={styles.card}>
           <View style={styles.fileRow}>
-            <View style={styles.fileIconCircle}>
+            <View style={note.type === 'document' ? styles.fileIconCircle : styles.fileIconCircleImage}>
               {note.type === 'document' ? (
-                <Image
-                  source={require('../assets/icons/pdf-icon.jpg')}
-                  style={styles.fileIconImg}
-                  resizeMode="contain"
-                />
+                <Text style={styles.fileIcon}>📄</Text>
               ) : (
-                <Image
-                  source={require('../assets/icons/image-icon.jpg')}
-                  style={styles.fileIconImg}
-                  resizeMode="contain"
-                />
+                <Text style={styles.fileIcon}>📝</Text>
               )}
             </View>
 
@@ -688,7 +680,11 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     width: 48, height: 48, borderRadius: 12, backgroundColor: colors.header,
     justifyContent: 'center', alignItems: 'center',
   },
-  fileIconImg: { width: 28, height: 28 },
+   fileIconCircleImage: {
+    width: 48, height: 48, borderRadius: 12, backgroundColor: colors.accent,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  fileIcon: { fontSize: 24 },
   fileInfo: { flex: 1 },
   fileLabel: { fontSize: 14, fontWeight: '700', color: colors.text },
   fileName: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },

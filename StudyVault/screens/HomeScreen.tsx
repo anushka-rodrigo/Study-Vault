@@ -43,10 +43,9 @@ type Props = {
 };
 
 export default function DbHomeScreen({ navigation }: Props) {
-  // STEP 2: pull the active palette + mode out of context.
+  
   const { colors, mode } = useTheme();
-  // STEP 3: styles become a function call using the active colors,
-  // instead of a static StyleSheet.create() sitting outside the component.
+  
   const styles = getStyles(colors);
 
   const [activeTab, setActiveTab] = useState<'list' | 'group'>('list');
@@ -208,19 +207,11 @@ export default function DbHomeScreen({ navigation }: Props) {
         })
       }
     >
-      <View style={[styles.fileIconWrapper, item.type === 'image' && styles.fileIconWrapperImage]}>
+      <View style={item.type === 'document' ? styles.fileIconWrapper : styles.fileIconWrapperImage}>
         {item.type === 'document' ? (
-          <Image
-            source={require('../assets/icons/pdf-icon.jpg')}
-            style={styles.fileIconImage}
-            resizeMode="contain"
-          />
+          <Text style={styles.fileIcon}>📄</Text>
         ) : (
-          <Image
-            source={require('../assets/icons/image-icon.jpg')}
-            style={styles.fileIconImage}
-            resizeMode="contain"
-          />
+          <Text style={styles.fileIcon}>📝</Text>
         )}
       </View>
 
@@ -235,11 +226,7 @@ export default function DbHomeScreen({ navigation }: Props) {
           onPress={() => deleteNote(item.id, item.filePath)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Image
-            source={require('../assets/icons/delete-icon.png')}
-            style={styles.deleteIconImage}
-            resizeMode="contain"
-          />
+          <Text style={styles.deleteIcon}>❌</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -341,11 +328,7 @@ export default function DbHomeScreen({ navigation }: Props) {
                   onPress={() => handleDeleteFolder(item.id, item.name)}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Image
-                    source={require('../assets/icons/delete-icon.png')}
-                    style={styles.deleteIconImage}
-                    resizeMode="contain"
-                  />
+                  <Text style={styles.deleteIcon}>❌</Text>
                 </TouchableOpacity>
                 <Text style={styles.folderChevron}>→</Text>
               </View>
@@ -525,17 +508,22 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   fileIconWrapper: {
     width: 44, height: 44, borderRadius: 10,
-    backgroundColor: colors.background,
+    backgroundColor: colors.header,
     justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  fileIconWrapperImage: { backgroundColor: colors.background },
-  fileIconImage: { width: 26, height: 26 },
+  fileIconWrapperImage: {
+    width: 44, height: 44, borderRadius: 10,
+    backgroundColor: colors.accent,
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
+  },
+
+  fileIcon: { fontSize: 24},
   noteInfo: { flex: 1 },
   noteTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 3 },
   noteDate: { fontSize: 12, color: colors.textSecondary, fontWeight: '400' },
   noteActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pinIcon: { fontSize: 18 },
-  deleteIconImage: { width: 20, height: 20 },
+  deleteIcon: { fontSize: 15 },
   searchBoxWrapper: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: colors.inputBackground, borderRadius: 10,

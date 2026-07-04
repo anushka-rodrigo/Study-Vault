@@ -253,7 +253,7 @@ export default function AddNoteScreen({ navigation }: Props) {
             {pickingPdf ? (
               <ActivityIndicator color={colors.primaryButtonText} size="large" />
             ) : (
-              <Image source={require('../assets/icons/pdf-icon.jpg')} style={styles.cardIconImage} resizeMode="contain" />
+              <Text style={styles.cardIcon}>📄</Text>
             )}
           </View>
           <Text style={styles.cardTitle}>Upload PDF</Text>
@@ -269,10 +269,10 @@ export default function AddNoteScreen({ navigation }: Props) {
         >
           <View style={[styles.iconCircle, styles.iconCircleImage]}>
             {pickingImage ? (
-              <ActivityIndicator color={colors.primaryButtonText} size="large" />
-            ) : (
-              <Image source={require('../assets/icons/image-icon.jpg')} style={styles.cardIconImage} resizeMode="contain" />
-            )}
+  <ActivityIndicator color={colors.primaryButtonText} size="large" />
+) : (
+  <Text style={styles.cardIcon}>📝</Text>
+)}
           </View>
           <Text style={styles.cardTitle}>Upload Handwritten Notes</Text>
           <Text style={styles.cardSubtitle}>Select from gallery or files</Text>
@@ -298,7 +298,7 @@ export default function AddNoteScreen({ navigation }: Props) {
               pendingUpload?.type === 'document' ? styles.renameBadgePdf : styles.renameBadgeImage,
             ]}>
               <Text style={styles.renameBadgeEmoji}>
-                {pendingUpload?.type === 'document' ? '📄' : '🖼️'}
+                {pendingUpload?.type === 'document' ? '📄' : '📝'}
               </Text>
             </View>
 
@@ -406,13 +406,13 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     gap: 10,
   },
   uploadCardPdf: {
-    borderColor: '#60A5FA',
+        borderColor: colors.header,
   },
   uploadCardImage: {
-    borderColor: '#C084FC',
+    borderColor: colors.accent,
   },
 
-  cardIconImage: { width: 36, height: 36 },
+  cardIcon: { fontSize: 24 },
 
   // Icon circles
   iconCircle: {
@@ -427,7 +427,7 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     backgroundColor: colors.header,
   },
   iconCircleImage: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: colors.accent,
   },
   iconEmoji: {
     fontSize: 30,
@@ -476,7 +476,7 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     marginBottom: 14,
   },
   renameBadgePdf: { backgroundColor: colors.background },
-  renameBadgeImage: { backgroundColor: colors.background },
+  renameBadgeImage: { backgroundColor: colors.accent },
   renameBadgeEmoji: { fontSize: 28 },
   renameTitle: {
     fontSize: 18,
@@ -527,7 +527,7 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     alignItems: 'center',
   },
   renameConfirmBtnPdf: { backgroundColor: colors.primaryButton },
-  renameConfirmBtnImage: { backgroundColor: '#7C3AED' },
+  renameConfirmBtnImage: { backgroundColor: colors.accent },
   renameConfirmText: {
     fontSize: 15,
     fontWeight: '700',
