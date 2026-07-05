@@ -152,11 +152,11 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
         })
       }
     >
-      <View style={[styles.fileIconWrapper, item.type === 'image' && styles.fileIconWrapperImage]}>
+      <View style={item.type === 'document' ? styles.fileIconWrapper : styles.fileIconWrapperImage}>
         {item.type === 'document' ? (
-          <Image source={require('../assets/icons/pdf-icon.jpg')} style={styles.fileIconImage} resizeMode="contain" />
+          <Text style={styles.fileIcon}>📄</Text>
         ) : (
-          <Image source={require('../assets/icons/image-icon.jpg')} style={styles.fileIconImage} resizeMode="contain" />
+          <Text style={styles.fileIcon}>📝</Text>
         )}
       </View>
       <View style={styles.noteInfo}>
@@ -169,7 +169,7 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
           onPress={() => removeNoteFromFolder(item.id)}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Image source={require('../assets/icons/delete-icon.png')} style={styles.deleteIconImage} resizeMode="contain" />
+          <Text style={styles.deleteIcon}>❌</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
@@ -181,11 +181,11 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
       onPress={() => addNoteToFolder(item.id)}
       activeOpacity={0.7}
     >
-      <View style={[styles.fileIconWrapperSmall, item.type === 'image' && styles.fileIconWrapperImage]}>
+       <View style={item.type === 'document' ? styles.fileIconWrapperSmall : styles.fileIconWrapperSmallImage}>
         {item.type === 'document' ? (
-          <Image source={require('../assets/icons/pdf-icon.jpg')} style={styles.fileIconImageSmall} resizeMode="contain" />
+          <Text style={styles.fileIcon}>📄</Text>
         ) : (
-          <Image source={require('../assets/icons/image-icon.jpg')} style={styles.fileIconImageSmall} resizeMode="contain" />
+          <Text style={styles.fileIcon}>📝</Text>
         )}
       </View>
       <View style={styles.noteInfo}>
@@ -398,17 +398,20 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 12, paddingHorizontal: 12, marginBottom: 10,
   },
   fileIconWrapper: {
-    width: 44, height: 44, borderRadius: 10, backgroundColor: colors.background,
+    width: 44, height: 44, borderRadius: 10, backgroundColor: colors.header,
     justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  fileIconWrapperImage: { backgroundColor: colors.background },
-  fileIconImage: { width: 32, height: 32 },
+  fileIconWrapperImage: {
+    width: 44, height: 44, borderRadius: 10, backgroundColor: colors.accent,
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
+  },
+  fileIcon: {fontSize: 24 },
   noteInfo: { flex: 1 },
   noteTitle: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 2 },
   noteDate: { fontSize: 12, color: colors.textSecondary },
   noteActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   pinIcon: { fontSize: 18 },
-  deleteIconImage: { width: 26, height: 26 },
+  deleteIcon: { fontSize: 15 },
 
   emptyText: { textAlign: 'center', color: colors.placeholder, fontSize: 14, marginTop: 32, paddingHorizontal: 24 },
 
@@ -431,10 +434,14 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 12, paddingHorizontal: 12,
   },
   fileIconWrapperSmall: {
-    width: 40, height: 40, borderRadius: 10, backgroundColor: colors.background,
+    width: 40, height: 40, borderRadius: 10, backgroundColor: colors.header,
     justifyContent: 'center', alignItems: 'center', marginRight: 12,
   },
-  fileIconImageSmall: { width: 26, height: 26 },
+  fileIconWrapperSmallImage: {
+    width: 40, height: 40, borderRadius: 10, backgroundColor: colors.accent,
+    justifyContent: 'center', alignItems: 'center', marginRight: 12,
+  },
+  fileIconSmall: { fontSize: 24 },
   modalCloseBtn: {
     marginTop: 16, backgroundColor: colors.border, borderRadius: 12,
     paddingVertical: 14, alignItems: 'center',

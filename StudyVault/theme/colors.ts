@@ -1,9 +1,5 @@
 // Central color palette for the whole app.
-// Every screen should read colors from here (via useTheme()) instead of
-// hardcoding hex values, so light/dark mode only has to be defined once.
-//
-// Both palettes below MUST keep the exact same keys, so screens can safely
-// do colors.background / colors.header / etc. without checking the mode.
+
 
 export type ThemeColors = {
   background: string;      // main screen background (was white)
@@ -19,6 +15,7 @@ export type ThemeColors = {
   overlay: string;         // modal backdrop
   inputBackground: string; // text input fill
   placeholder: string;     // input placeholder text color
+  accent: string;          // secondary icon accent (image/handwritten notes)
 };
 
 export const lightColors: ThemeColors = {
@@ -35,6 +32,7 @@ export const lightColors: ThemeColors = {
   overlay: 'rgba(0,0,0,0.4)',
   inputBackground: '#FFFFFF',
   placeholder: '#9CA3AF',
+  accent: '#7C3AED',
 };
 
 export const darkColors: ThemeColors = {
@@ -51,4 +49,5 @@ export const darkColors: ThemeColors = {
   overlay: 'rgba(0,0,0,0.6)',
   inputBackground: '#1E293B',
   placeholder: '#64748B',
+  accent: '#ed781f',
 };
