@@ -15,7 +15,10 @@ import {
 } from 'react-native';
 
 import { onAuthStateChanged } from 'firebase/auth';
-import { auth } from '../config/firebase';
+import { auth, db } from '../config/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import * as FileSystem from 'expo-file-system/legacy';
+import { resolveFileUri } from '../services/fileStorageService';
 import {
   fetchNotes,
   addNote,
@@ -60,11 +63,34 @@ export default function DbHomeScreen({ navigation }: Props) {
   // Search queries: list view searches notes by title, group view searches folders by name.
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
   const [folderSearchQuery, setFolderSearchQuery] = useState('');
+  const [profileImageUri, setProfileImageUri] = useState('');
+
+  // Looks up the user's saved profile picture and resolves it to a URI that
+  // still exists on this device, falling back to the default avatar icon.
+  const loadProfileImage = async (userId: string) => {
+    try {
+      const userDocRef = doc(db, 'users', userId);
+      const docSnap = await getDoc(userDocRef);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        if (data.profileImagePath) {
+          const resolvedUri = resolveFileUri(data.profileImagePath);
+          const fileInfo = await FileSystem.getInfoAsync(resolvedUri);
+          setProfileImageUri(fileInfo.exists ? resolvedUri : '');
+        } else {
+          setProfileImageUri('');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading profile image:', error);
+    }
+  };
 
   useEffect(() => {
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       if (user) {
         setLoadingNotes(true);
+        loadProfileImage(user.uid);
         fetchNotes(user.uid)
           .then((fetchedNotes) => {
             setNotes(fetchedNotes);
@@ -98,6 +124,7 @@ export default function DbHomeScreen({ navigation }: Props) {
     const unsubscribeFocus = navigation.addListener('focus', () => {
       const currentUser = auth.currentUser;
       if (currentUser) {
+        loadProfileImage(currentUser.uid);
         fetchNotes(currentUser.uid)
           .then((fetchedNotes) => {
             setNotes(fetchedNotes);
@@ -348,7 +375,11 @@ export default function DbHomeScreen({ navigation }: Props) {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>StudyVault</Text>
         <TouchableOpacity style={styles.profileButton} onPress={handleProfile}>
-          <Text style={styles.profileIcon}>👤</Text>
+          {profileImageUri ? (
+            <Image source={{ uri: profileImageUri }} style={styles.profileImage} />
+          ) : (
+            <Text style={styles.profileIcon}>👤</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -483,6 +514,7 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   profileIcon: { fontSize: 20 },
+  profileImage: { width: 40, height: 40, borderRadius: 20 },
   body: { flex: 1, backgroundColor: colors.background },
   centerFill: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   tabContainer: {
