@@ -444,7 +444,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.headerIconBtn}
           >
-            <Text style={styles.headerIconText}>⤓ </Text>
+            <Text style={styles.headerIconText}>📥 </Text>
           </TouchableOpacity>
         </View>
       </View>
