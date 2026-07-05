@@ -188,7 +188,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     }
   };
 
-  const handleSummarize = async () => {
+  const handleSummarize = async (isResummarize: boolean = false) => {
     if (!resolvedFileUrl) {
       Alert.alert('Error', 'No file is attached to this note.');
       return;
@@ -209,6 +209,12 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
       await saveNoteSummary(note.id, summaryJson);
       setSummary(summaryJson);
       setSummarized(true);
+
+      // The card just swaps text in place on resummarize, which can be easy
+      // to miss if only a few words changed, so confirm it explicitly.
+      if (isResummarize) {
+        Alert.alert('Summary Updated', 'The AI summary has been regenerated.');
+      }
     } catch (error: any) {
       Alert.alert('Error', 'Failed to save summary to database.');
     } finally {
@@ -259,9 +265,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
       {
         text: 'Resummarize',
         onPress: () => {
-          setSummarized(false);
-          setSummary('');
-          handleSummarize();
+          handleSummarize(true);
         },
       },
     ]);
@@ -540,11 +544,16 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.actionButton}
+                style={[styles.actionButton, summarizing && styles.actionButtonDisabled]}
                 onPress={handleResummarize}
+                disabled={summarizing}
                 activeOpacity={0.8}
               >
-                <Text style={styles.actionButtonText}>Resummarize</Text>
+                {summarizing ? (
+                  <ActivityIndicator color={colors.primaryButtonText} size="small" />
+                ) : (
+                  <Text style={styles.actionButtonText}>Resummarize</Text>
+                )}
               </TouchableOpacity>
             </>
           ) : (
@@ -555,7 +564,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
               </Text>
               <TouchableOpacity
                 style={[styles.actionButton, summarizing && styles.actionButtonDisabled]}
-                onPress={handleSummarize}
+                onPress={() => handleSummarize()}
                 disabled={summarizing}
                 activeOpacity={0.8}
               >
