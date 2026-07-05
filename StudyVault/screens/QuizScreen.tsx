@@ -42,13 +42,17 @@ export default function QuizScreen({ navigation, route }: Props) {
     try {
       const result = await generateQuiz(summary, title);
       if (!result.success || !result.questions) {
-        setError(result.error || 'Failed to generate quiz.');
+        const message = result.error || 'Failed to generate quiz.';
+        setError(message);
         setQuestions([]);
+        Alert.alert('Quiz Generation Failed', message);
       } else {
         setQuestions(result.questions);
       }
     } catch (e: any) {
-      setError(e.message || 'Something went wrong while generating the quiz.');
+      const message = e.message || 'Something went wrong while generating the quiz.';
+      setError(message);
+      Alert.alert('Quiz Generation Failed', message);
     } finally {
       setLoading(false);
     }
