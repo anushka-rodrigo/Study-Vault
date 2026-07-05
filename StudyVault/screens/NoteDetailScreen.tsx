@@ -625,7 +625,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
                 activeOpacity={0.8}
               >
                 {summarizing ? (
-                  <ActivityIndicator color={colors.primaryButtonText} size="small" />
+                  <ActivityIndicator color={colors.textSecondary} size="small" />
                 ) : (
                   <Text style={styles.actionButtonText}>Resummarize</Text>
                 )}
