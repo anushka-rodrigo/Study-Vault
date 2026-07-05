@@ -204,10 +204,16 @@ export const summarizeNote = async (
           error: 'Free tier rate limit reached. Wait a minute and try again.',
         };
       }
+      if (response.status === 503) {
+        return {
+          success: false,
+          error: "Gemini's servers are temporarily overloaded. Please wait a moment and try again.",
+        };
+      }
       if (response.status === 400) {
         return { success: false, error: 'The file could not be processed by Gemini. Try a different file.' };
       }
-      return { success: false, error: `Summarization failed (status ${response.status}).` };
+      return { success: false, error: `Summarization failed (status ${response.status}). Please try again.` };
     }
 
     const data = await response.json();

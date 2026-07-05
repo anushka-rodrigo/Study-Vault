@@ -141,10 +141,16 @@ export const generateQuiz = async (summaryText: string, title: string): Promise<
       if (response.status === 429) {
         return { success: false, error: 'Free tier rate limit reached. Wait a minute and try again.' };
       }
+      if (response.status === 503) {
+        return {
+          success: false,
+          error: "Gemini's servers are temporarily overloaded. Please wait a moment and try again.",
+        };
+      }
       if (response.status === 400) {
         return { success: false, error: 'The summary could not be processed by Gemini. Try resummarizing the note.' };
       }
-      return { success: false, error: `Quiz generation failed (status ${response.status}).` };
+      return { success: false, error: `Quiz generation failed (status ${response.status}). Please try again.` };
     }
 
     const data = await response.json();
