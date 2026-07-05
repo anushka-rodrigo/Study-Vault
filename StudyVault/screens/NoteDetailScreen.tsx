@@ -316,7 +316,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
         // Ask user to pick a directory (e.g. Downloads) and write straight into it.
         const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (!permissions.granted) {
-          Alert.alert('Permission needed', 'Please grant folder access to save the file.');
+          // User backed out of the folder picker to cancel — not an error, just stop here.
           return;
         }
 
