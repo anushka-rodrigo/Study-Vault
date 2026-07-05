@@ -348,6 +348,103 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     }
   };
 
+  // Resolves the note's attached file to a local URI, downloading it first if
+  // it's still a remote URL. Shared by view/share/download so all three stay
+  // in sync on how a "local copy" of the file is obtained.
+  const ensureLocalFileUri = async (): Promise<string | null> => {
+    if (!resolvedFileUrl) return null;
+
+    if (resolvedFileUrl.startsWith('http://') || resolvedFileUrl.startsWith('https://')) {
+      const filename = resolvedFileUrl.substring(resolvedFileUrl.lastIndexOf('/') + 1).split('?')[0];
+      const dirPath = `${FileSystem.documentDirectory}notes/${note.userId}/${note.type === 'document' ? 'docs' : 'images'}/`;
+
+      await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
+
+      const fullPath = `${dirPath}${filename}`;
+      const fileInfo = await FileSystem.getInfoAsync(fullPath);
+      if (!fileInfo.exists) {
+        Alert.alert('Downloading', 'Downloading file...');
+        const downloadResult = await FileSystem.downloadAsync(resolvedFileUrl, fullPath);
+        return downloadResult.uri;
+      }
+      return fullPath;
+    }
+
+    const fileInfo = await FileSystem.getInfoAsync(resolvedFileUrl);
+    if (!fileInfo.exists) {
+      Alert.alert('Error', 'Local target file path does not exist.');
+      return null;
+    }
+    return resolvedFileUrl;
+  };
+
+  // Shares the actual attached file (PDF/image), not the AI summary.
+  const handleShareFile = async () => {
+    if (!resolvedFileUrl) {
+      Alert.alert('Error', 'No file is attached to this note.');
+      return;
+    }
+    try {
+      const localUri = await ensureLocalFileUri();
+      if (!localUri) return;
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(localUri);
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device.');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to share file: ' + error.message);
+    }
+  };
+
+  // Saves the actual attached file (PDF/image) to device storage, not the AI summary.
+  const handleDownloadFile = async () => {
+    if (!resolvedFileUrl) {
+      Alert.alert('Error', 'No file is attached to this note.');
+      return;
+    }
+    try {
+      const localUri = await ensureLocalFileUri();
+      if (!localUri) return;
+
+      const filename = localUri.substring(localUri.lastIndexOf('/') + 1).split('?')[0]
+        || `${note.title.toLowerCase().replace(/\s+/g, '_')}.${note.type === 'document' ? 'pdf' : 'jpg'}`;
+      const mimeType = note.type === 'document' ? 'application/pdf' : 'image/jpeg';
+
+      if (Platform.OS === 'android') {
+        const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+        if (!permissions.granted) {
+          // User backed out of the folder picker to cancel — not an error, just stop here.
+          return;
+        }
+
+        const destUri = await FileSystem.StorageAccessFramework.createFileAsync(
+          permissions.directoryUri,
+          filename,
+          mimeType
+        );
+        const base64 = await FileSystem.readAsStringAsync(localUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        await FileSystem.writeAsStringAsync(destUri, base64, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+
+        Alert.alert('Downloaded', 'File saved to the selected folder.');
+      } else {
+        // iOS: no public writable "Downloads" — share sheet's "Save to Files" is the platform-correct save path.
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(localUri);
+        } else {
+          Alert.alert('Error', 'Sharing is not available on this device.');
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to download file: ' + error.message);
+    }
+  };
+
   // Opens the file in the device's system viewer. Handles remote files by downloading them first.
   const handleOpenFile = async () => {
     if (!resolvedFileUrl) {
@@ -356,30 +453,8 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     }
 
     try {
-      let localUri = resolvedFileUrl;
-
-      if (resolvedFileUrl.startsWith('http://') || resolvedFileUrl.startsWith('https://')) {
-        const filename = resolvedFileUrl.substring(resolvedFileUrl.lastIndexOf('/') + 1).split('?')[0];
-        const dirPath = `${FileSystem.documentDirectory}notes/${note.userId}/${note.type === 'document' ? 'docs' : 'images'}/`;
-
-        await FileSystem.makeDirectoryAsync(dirPath, { intermediates: true });
-
-        const fullPath = `${dirPath}${filename}`;
-        const fileInfo = await FileSystem.getInfoAsync(fullPath);
-        if (!fileInfo.exists) {
-          Alert.alert('Downloading', 'Downloading file to view...');
-          const downloadResult = await FileSystem.downloadAsync(resolvedFileUrl, fullPath);
-          localUri = downloadResult.uri;
-        } else {
-          localUri = fullPath;
-        }
-      } else {
-        const fileInfo = await FileSystem.getInfoAsync(localUri);
-        if (!fileInfo.exists) {
-          Alert.alert('Error', 'Local target file path does not exist.');
-          return;
-        }
-      }
+      const localUri = await ensureLocalFileUri();
+      if (!localUri) return;
 
       // Launch default system viewer
       if (Platform.OS === 'android') {
@@ -431,7 +506,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
 
           {/* Share */}
           <TouchableOpacity
-            onPress={handleShareSummary}
+            onPress={handleShareFile}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.headerIconBtn}
           >
@@ -440,7 +515,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
 
           {/* Download */}
           <TouchableOpacity
-            onPress={handleDownloadSummary}
+            onPress={handleDownloadFile}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             style={styles.headerIconBtn}
           >
