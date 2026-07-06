@@ -30,7 +30,7 @@ Built as a group project for **CCS3102 | CSE3102 – Mobile Computing**, Faculty
 ## Project Structure
 
 ```
-StudyVault/
+app/
 ├── App.tsx                 # Navigation stack & route definitions
 ├── index.ts                 # Entry point
 ├── screens/
@@ -95,14 +95,9 @@ StudyVault/
 
 4. Start the development server:
    ```bash
-   npm start
+   npx expo start
    ```
-   Then scan the QR code with Expo Go, or run:
-   ```bash
-   npm run android   # Android emulator/device
-   npm run ios       # iOS simulator/device
-   npm run web       # Web preview
-   ```
+   Then scan the QR code with Expo Go, or press `a` / `i` / `w` in the terminal to open on Android, iOS, or web respectively.
 
 ## How It Works
 
