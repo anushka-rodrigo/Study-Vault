@@ -13,11 +13,17 @@ import {
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
+import { useTheme } from '../theme/ThemeContext';
+import { ThemeColors } from '../theme/colors';
+
 type Props = {
   navigation: any;
 };
 
 export default function LoginScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const styles = getStyles(colors);
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -66,7 +72,7 @@ export default function LoginScreen({ navigation }: Props) {
         <TextInput
           style={styles.input}
           placeholder="student@university.edu"
-          placeholderTextColor="#aaa"
+          placeholderTextColor={colors.placeholder}
           keyboardType="email-address"
           autoCapitalize="none"
           value={email}
@@ -78,7 +84,7 @@ export default function LoginScreen({ navigation }: Props) {
         <TextInput
           style={styles.input}
           placeholder="••••••••"
-          placeholderTextColor="#aaa"
+          placeholderTextColor={colors.placeholder}
           secureTextEntry
           value={password}
           onChangeText={setPassword}
@@ -92,7 +98,7 @@ export default function LoginScreen({ navigation }: Props) {
           activeOpacity={0.85}
         >
           {loading ? (
-            <ActivityIndicator color="#fff" />
+            <ActivityIndicator color={colors.primaryButtonText} />
           ) : (
             <Text style={styles.loginButtonText}>Login</Text>
           )}
@@ -110,16 +116,16 @@ export default function LoginScreen({ navigation }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (colors: ThemeColors) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f0f4ff',
+    backgroundColor: colors.background,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   card: {
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.surface,
     borderRadius: 20,
     padding: 32,
     width: '100%',
@@ -135,7 +141,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#2563EB',
+    backgroundColor: colors.header,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -146,7 +152,7 @@ const styles = StyleSheet.create({
   appName: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#2563EB',
+    color: colors.header,
     marginBottom: 28,
     letterSpacing: 0.5,
   },
@@ -154,7 +160,7 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.text,
     marginBottom: 6,
     marginTop: 4,
   },
@@ -162,24 +168,24 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 50,
     borderWidth: 1.5,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
     fontSize: 15,
-    color: '#111827',
-    backgroundColor: '#FAFAFA',
+    color: colors.text,
+    backgroundColor: colors.inputBackground,
     marginBottom: 16,
   },
   loginButton: {
     width: '100%',
     height: 52,
-    backgroundColor: '#2563EB',
+    backgroundColor: colors.primaryButton,
     borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 20,
-    shadowColor: '#2563EB',
+    shadowColor: colors.primaryButton,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 8,
@@ -189,7 +195,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   loginButtonText: {
-    color: '#fff',
+    color: colors.primaryButtonText,
     fontSize: 17,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -200,11 +206,11 @@ const styles = StyleSheet.create({
   },
   signupText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.textSecondary,
   },
   signupLink: {
     fontSize: 14,
-    color: '#2563EB',
+    color: colors.header,
     fontWeight: '700',
   },
 });
