@@ -111,9 +111,9 @@ app/
 
 | Name | Role |
 |---|---|
+| M. A. O. Rodrigo | AI Integration Developer |
 | T. G. Kithmi Pabodha | Frontend Developer |
 | M. D. C. E. Gunathilaka | Backend Developer |
-| M. A. O. Rodrigo | AI Integration Developer |
 
 Developed for the Faculty of Computing, University of Sri Jayewardenepura, as part of the Mobile Computing (CCS3102 / CSE3102) module.
 
