@@ -185,10 +185,6 @@ export const renameNoteInDb = async (noteId: string, newTitle: string): Promise<
 };
 
 // Client-side search: filters an already-fetched note list by title.
-// Case-insensitive. Results are ranked so titles that START WITH the query
-// appear first, followed by titles that merely CONTAIN the query elsewhere —
-// this keeps "visual" and "professional" from outranking a title like
-// "AL_report.pdf" when searching "AL".
 export const searchNotesByTitle = (notes: Note[], searchQuery: string): Note[] => {
   const trimmedQuery = searchQuery.trim().toLowerCase();
   if (!trimmedQuery) return notes;

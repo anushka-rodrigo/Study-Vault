@@ -21,7 +21,7 @@ type Props = {
   route: {
     params: {
       title: string;
-      summary: string; // the note's stored summary (JSON string or legacy text)
+      summary: string; 
     };
   };
 };

@@ -36,7 +36,7 @@ type Props = {
   };
 };
 
-// Renders a structured AI summary (real bold/section components, no markdown parsing).
+// Renders a structured AI summary.
 function StructuredSummary({ data, colors }: { data: NoteSummaryData; colors: ThemeColors }) {
   const summaryStyles = getSummaryStyles(colors);
   return (
@@ -88,8 +88,7 @@ function StructuredSummary({ data, colors }: { data: NoteSummaryData; colors: Th
   );
 }
 
-// Fallback renderer for old notes summarized before the JSON format was introduced
-// (their "summary" field in Firestore is plain markdown-ish text, not JSON).
+// Fallback renderer for old notes summarized before the JSON format was introduced.
 function LegacySummaryText({ text, colors }: { text: string; colors: ThemeColors }) {
   const summaryStyles = getSummaryStyles(colors);
   const lines = text.split('\n');
@@ -147,8 +146,6 @@ function SummaryContent({ text, colors }: { text: string; colors: ThemeColors })
   return <LegacySummaryText text={text} colors={colors} />;
 }
 
-// summaryStyles depends on the active theme, so it's a function called with
-// the current palette rather than a static StyleSheet.create() at module scope.
 const getSummaryStyles = (colors: ThemeColors) => StyleSheet.create({
   sectionHeading: { fontSize: 14, fontWeight: '800', color: colors.header, textTransform: 'uppercase', letterSpacing: 0.3 },
   formula: { fontSize: 14, fontWeight: '700', color: colors.text, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
@@ -210,8 +207,6 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
       setSummary(summaryJson);
       setSummarized(true);
 
-      // The card just swaps text in place on resummarize, which can be easy
-      // to miss if only a few words changed, so confirm it explicitly.
       if (isResummarize) {
         Alert.alert('Summary Updated', 'The AI summary has been regenerated.');
       }
@@ -272,7 +267,6 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
   };
 
   // The stored "summary" is JSON for new notes, plain text for old (pre-JSON) notes.
-  // This always returns clean plain text, suitable for sharing/downloading.
   const getSummaryExportText = (): string => {
     try {
       const parsed = JSON.parse(summary);
@@ -313,10 +307,10 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
 
     try {
       if (Platform.OS === 'android') {
-        // Ask user to pick a directory (e.g. Downloads) and write straight into it.
+        // Ask user to pick a directory and write straight into it.
         const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (!permissions.granted) {
-          // User backed out of the folder picker to cancel — not an error, just stop here.
+          // User backed out of the folder picker to cancel.
           return;
         }
 
@@ -331,7 +325,6 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
 
         Alert.alert('Downloaded', 'Summary saved to the selected folder.');
       } else {
-        // iOS: no public writable "Downloads" — share sheet's "Save to Files" is the platform-correct save path.
         const tempUri = `${FileSystem.documentDirectory}${filename}`;
         await FileSystem.writeAsStringAsync(tempUri, content, {
           encoding: FileSystem.EncodingType.UTF8,
@@ -348,9 +341,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     }
   };
 
-  // Resolves the note's attached file to a local URI, downloading it first if
-  // it's still a remote URL. Shared by view/share/download so all three stay
-  // in sync on how a "local copy" of the file is obtained.
+  // Resolves the note's attached file to a local URI.
   const ensureLocalFileUri = async (): Promise<string | null> => {
     if (!resolvedFileUrl) return null;
 
@@ -378,7 +369,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     return resolvedFileUrl;
   };
 
-  // Shares the actual attached file (PDF/image), not the AI summary.
+  // Shares the actual attached file.
   const handleShareFile = async () => {
     if (!resolvedFileUrl) {
       Alert.alert('Error', 'No file is attached to this note.');
@@ -398,7 +389,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     }
   };
 
-  // Saves the actual attached file (PDF/image) to device storage, not the AI summary.
+  // Saves the actual attached file to device storage.
   const handleDownloadFile = async () => {
     if (!resolvedFileUrl) {
       Alert.alert('Error', 'No file is attached to this note.');
@@ -415,7 +406,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
       if (Platform.OS === 'android') {
         const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
         if (!permissions.granted) {
-          // User backed out of the folder picker to cancel — not an error, just stop here.
+          // User backed out of the folder picker to cancel.
           return;
         }
 
@@ -433,7 +424,6 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
 
         Alert.alert('Downloaded', 'File saved to the selected folder.');
       } else {
-        // iOS: no public writable "Downloads" — share sheet's "Save to Files" is the platform-correct save path.
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(localUri);
         } else {
@@ -445,7 +435,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
     }
   };
 
-  // Opens the file in the device's system viewer. Handles remote files by downloading them first.
+  // Opens the file in the device's system viewer. 
   const handleOpenFile = async () => {
     if (!resolvedFileUrl) {
       Alert.alert('Error', 'No file URI associated with this note.');
@@ -461,11 +451,10 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
         const cUri = await FileSystem.getContentUriAsync(localUri);
         await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
           data: cUri,
-          flags: 1, // Grant read permission
+          flags: 1, 
           type: note.type === 'document' ? 'application/pdf' : 'image/*',
         });
       } else {
-        // iOS Fallback: Open with sharing controller (which has "Quick Look" viewer built-in)
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(localUri);
         } else {
@@ -529,7 +518,7 @@ export default function DbNoteDetailScreen({ navigation, route }: Props) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title — tapping the pencil opens rename modal */}
+        {/* Title */}
         <View style={styles.titleRow}>
           <Text style={styles.title} numberOfLines={2}>{noteTitle}</Text>
           <TouchableOpacity

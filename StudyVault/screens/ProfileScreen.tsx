@@ -284,7 +284,7 @@ export default function ProfileScreen({ navigation }: Props) {
             )}
           </View>
 
-          {/* Show name/email under avatar only in view mode */}
+          {/* Show name/email */}
           {!isEditing && (
             <>
               <Text style={styles.avatarName}>{fullName}</Text>
@@ -461,9 +461,6 @@ export default function ProfileScreen({ navigation }: Props) {
   );
 }
 
-// Styles are now a function of the active theme colors. Called once per
-// render inside the component as `const styles = getStyles(colors);` so
-// switching dark mode re-renders every screen with the new palette.
 const getStyles = (colors: ThemeColors) => StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
 

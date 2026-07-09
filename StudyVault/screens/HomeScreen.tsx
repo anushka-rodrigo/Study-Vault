@@ -37,7 +37,7 @@ import {
   searchFoldersByName,
 } from '../services/folderService';
 
-// STEP 1: import the theme hook and color type.
+// Import the theme hook and color type.
 import { useTheme } from '../theme/ThemeContext';
 import { ThemeColors } from '../theme/colors';
 
@@ -60,7 +60,7 @@ export default function DbHomeScreen({ navigation }: Props) {
   const [folderModalVisible, setFolderModalVisible] = useState(false);
   const [folderName, setFolderName] = useState('');
 
-  // Search queries: list view searches notes by title, group view searches folders by name.
+  // Search queries
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
   const [folderSearchQuery, setFolderSearchQuery] = useState('');
   const [profileImageUri, setProfileImageUri] = useState('');
@@ -184,7 +184,7 @@ export default function DbHomeScreen({ navigation }: Props) {
     ]);
   };
 
-  // Modified handleAddNote to navigate to AddNoteScreen instead of showing mock alerts.
+  // Modified handleAddNote to navigate to AddNoteScreen.
   const handleAddNote = () => {
     navigation.navigate('AddNote');
   };
@@ -217,10 +217,9 @@ export default function DbHomeScreen({ navigation }: Props) {
     return 0;
   });
 
-  // Filter the (already sorted) notes by title using the search service function.
+  // Filter the notes.
   const displayedNotes = searchNotesByTitle(sortedNotes, noteSearchQuery);
 
-  // Filter folders by name using the search service function.
   const displayedFolders = searchFoldersByName(folders, folderSearchQuery);
 
   const renderNote = ({ item }: { item: Note }) => (
@@ -368,8 +367,7 @@ export default function DbHomeScreen({ navigation }: Props) {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header background flips blue->red between modes, so light-content
-          text stays readable either way. */}
+      {/* Header */}
       <StatusBar barStyle="light-content" backgroundColor={colors.header} />
 
       <View style={styles.header}>
@@ -463,7 +461,7 @@ export default function DbHomeScreen({ navigation }: Props) {
         animationType="fade"
         onRequestClose={() => setFolderModalVisible(false)}
       >
-        {/* STEP 4: inline JSX styles need the same hex -> colors.x swap. */}
+        {/* Inline JSX styles */}
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalCardTitle}>
@@ -582,7 +580,7 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   },
   fabIcon: { fontSize: 28, color: colors.primaryButtonText, fontWeight: '400', lineHeight: 32 },
 
-  // Group View (previously inline styles in the JSX)
+  // Group View
   groupViewContainer: { flex: 1, paddingHorizontal: 16, paddingTop: 8 },
   createFolderBtn: {
     backgroundColor: colors.primaryButton, padding: 12, borderRadius: 10,
@@ -601,7 +599,7 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
   folderMeta: { fontSize: 12, color: colors.textSecondary },
   folderChevron: { color: colors.textSecondary },
 
-  // Create Folder modal (previously inline styles in the JSX)
+  // Create Folder modal 
   modalOverlay: {
     flex: 1, backgroundColor: colors.overlay,
     justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32,

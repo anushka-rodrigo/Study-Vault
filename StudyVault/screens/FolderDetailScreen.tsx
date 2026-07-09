@@ -47,7 +47,6 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
   const [addModalVisible, setAddModalVisible] = useState(false);
 
   // Local copy of notes so pin-status changes made from NoteDetailScreen
-  // reflect immediately here without needing a full refetch.
   const [allNotes, setAllNotes] = useState<Note[]>(route.params.allNotes);
 
   // Rename state
@@ -65,7 +64,6 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
   };
 
   // Updates the pinned flag locally and forwards the change up to HomeScreen
-  // (if a callback was provided) so List View stays in sync too.
   const handlePinToggle = (noteId: string, pinned: boolean) => {
     setAllNotes(prev => prev.map(n => (n.id === noteId ? { ...n, pinned } : n)));
     if (onNotePinToggle) {
@@ -208,7 +206,7 @@ export default function FolderDetailScreen({ navigation, route }: Props) {
       </View>
 
       <View style={styles.body}>
-        {/* Tab bar (cosmetic, group view active) */}
+        {/* Tab bar */}
         <View style={styles.tabContainer}>
           <TouchableOpacity
             style={styles.tab}

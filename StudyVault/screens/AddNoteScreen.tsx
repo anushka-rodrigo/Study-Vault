@@ -30,8 +30,8 @@ type Props = {
 
 // Holds the data for a file that has been picked but not yet saved, while the user is in the rename dialog.
 type PendingUpload = {
-  uri: string;        // original URI from picker
-  name: string;       // original filename (with extension)
+  uri: string;        
+  name: string;       
   type: 'document' | 'image';
 };
 
@@ -59,7 +59,7 @@ export default function AddNoteScreen({ navigation }: Props) {
   };
 
 
-  // ── Phase 1 ── Pick a PDF and open the rename dialog.
+  // Pick a PDF and open the rename dialog.
   const handleUploadPDF = async () => {
     setPickingPdf(true);
     const currentUser = auth.currentUser;
@@ -90,7 +90,7 @@ export default function AddNoteScreen({ navigation }: Props) {
     }
   };
 
-  // ── Phase 1 ── Pick an image and open the rename dialog.
+  // Pick an image and open the rename dialog.
   const handleUploadImage = async () => {
     setPickingImage(true);
     const currentUser = auth.currentUser;
@@ -128,7 +128,7 @@ export default function AddNoteScreen({ navigation }: Props) {
     }
   };
 
-  // ── Phase 2 ── After User confirmed the name, do the duplicate check and save.
+  // After User confirmed the name, do the duplicate check and save.
   const handleConfirmUpload = async () => {
     if (!pendingUpload) return;
 
@@ -269,10 +269,10 @@ export default function AddNoteScreen({ navigation }: Props) {
         >
           <View style={[styles.iconCircle, styles.iconCircleImage]}>
             {pickingImage ? (
-  <ActivityIndicator color={colors.primaryButtonText} size="large" />
-) : (
-  <Text style={styles.cardIcon}>📝</Text>
-)}
+              <ActivityIndicator color={colors.primaryButtonText} size="large" />
+            ) : (
+              <Text style={styles.cardIcon}>📝</Text>
+            )}
           </View>
           <Text style={styles.cardTitle}>Upload Handwritten Notes</Text>
           <Text style={styles.cardSubtitle}>Select from gallery or files</Text>
@@ -280,7 +280,7 @@ export default function AddNoteScreen({ navigation }: Props) {
 
       </View>
 
-      {/* ── Rename-before-upload modal ── */}
+      {/* Rename-before-upload modal */}
       <Modal
         visible={renameModalVisible}
         transparent
@@ -385,7 +385,7 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     letterSpacing: 0.2,
   },
 
-  // Body — vertically centred cards
+  // Body 
   body: {
     flex: 1,
     backgroundColor: colors.background,
@@ -447,7 +447,7 @@ const getStyles = (colors: ThemeColors) => StyleSheet.create({
     fontWeight: '400',
   },
 
-  // ── Rename modal styles ──
+  // Rename modal
   renameOverlay: {
     flex: 1,
     backgroundColor: colors.overlay,

@@ -56,7 +56,7 @@ export default function RegisterScreen({ navigation }: Props) {
       // Save display name to Firebase Auth profile
       await updateProfile(user, { displayName: fullName });
 
-      // Save extra user info (username, name) to Firestore
+      // Save extra user info to Firestore
       await setDoc(doc(db, 'users', user.uid), {
         fullName,
         email,
@@ -88,7 +88,7 @@ export default function RegisterScreen({ navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        {/* Header row */}
+        {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <Text style={styles.backArrow}>←</Text>
