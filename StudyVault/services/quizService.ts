@@ -1,14 +1,3 @@
-// services/quizService.ts
-//
-// Turns an already-generated note summary into a short revision quiz using
-// the Gemini API. This does NOT re-read the original PDF/image — it only
-// sends the text summary that was already produced by geminiService, which
-// keeps this call small, fast, and cheap on the free tier.
-//
-// OUTPUT FORMAT:
-// Plain questions only, no answers, no answer spaces — enforced via a JSON
-// response schema (array of strings), same technique as geminiService.
-
 import { NoteSummaryData } from './geminiService';
 
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
@@ -45,9 +34,8 @@ const RESPONSE_SCHEMA = {
   required: ['questions'],
 };
 
-// The stored "summary" field is either a JSON string matching NoteSummaryData
-// (new notes) or legacy plain text (old notes). This flattens either form
-// into plain text suitable to hand to the quiz prompt.
+//stored "summary" is either a JSON string matching NoteSummaryData (new notes) or legacy plain text (old notes)
+//converts either into a plain txt version for quiz prompt
 const summaryToPlainText = (summaryText: string): string => {
   try {
     const parsed = JSON.parse(summaryText);
@@ -75,7 +63,7 @@ const summaryToPlainText = (summaryText: string): string => {
       return lines.join('\n');
     }
   } catch {
-    // Not JSON — it's legacy plain text, use it as-is below.
+    //not JSON — it's legacy plain text, use it as-is below.
   }
   return summaryText;
 };
@@ -110,11 +98,9 @@ export const generateQuiz = async (summaryText: string, title: string): Promise<
         },
       ],
       generationConfig: {
-        // Generous headroom: thinking tokens are deducted from this same
-        // budget, and a truncated response was silently ending up with only
-        // ~14/15 questions instead of erroring. Raising this (plus capping
-        // thinkingBudget lower) leaves plenty of room for the visible
-        // question list to always finish completely.
+        //sets a max token output
+        //limits 'thinking' done by AI model
+        //ensures all 15 questions are generated without stopping in 13 or 14 questions as before
         maxOutputTokens: 4096,
         temperature: 0.4,
         responseMimeType: 'application/json',
@@ -182,8 +168,7 @@ export const generateQuiz = async (summaryText: string, title: string): Promise<
       return { success: false, error: 'Gemini did not return any questions. Please try again.' };
     }
 
-    // Safety net: enforce the 10-15 range on the client too, in case the
-    // model over/under-shoots despite the prompt instructions.
+    //ensures the generated questions are between 10 to 15 and remove empty strings
     const questions = parsed.questions
       .map((q) => (typeof q === 'string' ? q.trim() : ''))
       .filter(Boolean)

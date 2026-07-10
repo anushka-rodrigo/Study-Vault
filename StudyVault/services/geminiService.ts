@@ -1,52 +1,19 @@
-// services/geminiService.ts
-//
-// Handles AI summarization of notes (PDFs and images) using the Gemini API.
-//
-// WHY THIS APPROACH:
-// Expo Go cannot run native PDF-text-extraction or OCR libraries (they need a
-// custom dev build, which is what caused the earlier failed attempt). Gemini
-// 2.5 Flash can natively read PDF and image files directly — you send the raw
-// file as "inline_data" and it extracts + understands the content in the same
-// call that generates the summary. No separate extraction step, no native
-// modules, works fine in Expo Go.
-//
-// STRUCTURED OUTPUT:
-// Instead of asking Gemini to format its answer with markdown (**bold**, "•"
-// bullets) and then parsing that text with regex on the client, we force
-// Gemini to return actual JSON matching a fixed schema (responseSchema below).
-// This is enforced by the API itself, not just requested in the prompt, so
-// it's far more reliable. The app then renders each field with real React
-// Native <Text> components — no markdown parsing, no missed bold text.
-//
-// TOKEN-SAVING (important on the free tier):
-// - Images are resized/compressed before upload (smaller image = fewer tokens).
-// - maxOutputTokens is capped so responses stay bounded.
-// - Only one API call is made per summarize action.
-
 import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 
-// Reads the key from your .env file. Must be prefixed with EXPO_PUBLIC_ or
-// Expo will not expose it to app code. See the integration guide.
 const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
 
-// Free-tier eligible, fast, and supports native PDF + image understanding.
 const GEMINI_MODEL = 'gemini-2.5-flash';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-// Safety cap: inline requests to Gemini have a practical size ceiling once
-// base64-encoded. Keep raw files under ~15MB to stay safely under it.
+//max file size set for 15 mb with a base64-encode
 const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024;
 
-// ---------------------------------------------------------------------------
-// Structured summary shape. This is the single source of truth for both the
-// Gemini response schema below AND what the UI renders — keep them in sync.
-// ---------------------------------------------------------------------------
 export type NoteSummaryData = {
   overview: string;
   keyTopics: { title: string; description: string }[];
-  keyFormulas: { formula: string; explanation: string }[]; // empty array if none apply
-  workedExample: string[]; // one string per step; empty array if none apply
+  keyFormulas: { formula: string; explanation: string }[]; // empty array returned if no formulas to show
+  workedExample: string[]; // one string per step; empty array if no examples to show
 };
 
 const SYSTEM_PROMPT = `You are a study assistant that creates detailed, exam-useful summaries of a university student's uploaded educational material (lecture slides, textbook excerpts, handwritten notes, or problem sheets).
@@ -101,7 +68,7 @@ export type SummarizeResult = {
   error?: string;
 };
 
-// Compresses + resizes an image and returns base64 data directly (no extra file read needed).
+// Compresses and resizes an image and returns base64 data directly 
 const prepareImageBase64 = async (uri: string): Promise<{ base64: string; mimeType: string }> => {
   const manipulated = await ImageManipulator.manipulateAsync(
     uri,
@@ -169,16 +136,10 @@ export const summarizeNote = async (
       generationConfig: {
         maxOutputTokens: 8192,
         temperature: 0.3,
-        // Forces the model to output valid JSON matching RESPONSE_SCHEMA
-        // instead of free-form markdown text. Enforced by the API, not just
-        // requested in the prompt — much more reliable than regex-parsing
-        // markdown on the client.
+        // Forces the AI model to output a valid JSON matching RESPONSE_SCHEMA, this is much easier when formatting the output
         responseMimeType: 'application/json',
         responseSchema: RESPONSE_SCHEMA,
-        // Gemini 2.5 models think internally before answering, and those
-        // hidden reasoning tokens are deducted from maxOutputTokens. A
-        // bounded allowance stops it from starving the visible answer on
-        // dense/multi-page PDFs while still allowing some reasoning.
+        //reduce and limits the 'thinking' the AI model goes thru when giving output
         thinkingConfig: {
           thinkingBudget: 1024,
         },
@@ -226,7 +187,7 @@ export const summarizeNote = async (
     const finishReason = candidate?.finishReason;
 
     if (finishReason === 'MAX_TOKENS') {
-      // Response may be partially present but incomplete JSON — never try to show it.
+      //when JSON is incomplete due to cutoff, it is not shown
       return {
         success: false,
         error: 'The summary was cut off before finishing. Please try again.',
@@ -259,9 +220,8 @@ export const summarizeNote = async (
   }
 };
 
-// Converts structured summary data into a readable plain-text version, used
-// for the "Share Summary" and "Download Summary" actions (which need a plain
-// string, not JSON).
+//converts structured summary data into a readable plain-text version
+//usefulfor the "Share Summary" and "Download Summary" functions
 export const formatSummaryForExport = (data: NoteSummaryData): string => {
   const lines: string[] = [];
 
